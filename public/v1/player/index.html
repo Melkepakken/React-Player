@@ -294,8 +294,13 @@
         window.ReactPlayerI18n || null;
 
     let ytApiReady = false;
+    let ytApiLoading = false;
     let ytPlayer = null;
     let ytPlayerReady = false;
+    let ytPlayerHost = "";
+    let pendingYouTubeLoad = null;
+    let youtubeLoadSequence = 0;
+    const youtubePolicyCache = new Map();
 
     let currentRequest = null;
     let loadedRequestId = "";
@@ -631,31 +636,160 @@
         reportState("error");
     }
 
-    function ensureYouTubePlayer() {
-        if (!ytApiReady || ytPlayer) {
+    async function getYouTubePolicy(videoId) {
+        const cleanId = String(videoId || "").trim();
+
+        if (!cleanId) {
+            return { madeForKids: true, checked: false };
+        }
+
+        if (youtubePolicyCache.has(cleanId)) {
+            return youtubePolicyCache.get(cleanId);
+        }
+
+        const request = (async () => {
+            try {
+                const response = await fetch(
+                    "/api/youtube/video?id=" +
+                    encodeURIComponent(cleanId),
+                    { cache: "no-store" }
+                );
+
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status);
+                }
+
+                const payload = await response.json();
+                const item =
+                    payload &&
+                    Array.isArray(payload.items) &&
+                    payload.items.length > 0
+                        ? payload.items[0]
+                        : null;
+
+                if (!item) {
+                    throw new Error("video_status_unavailable");
+                }
+
+                return {
+                    madeForKids: Boolean(
+                        item.status &&
+                        item.status.madeForKids === true
+                    ),
+                    checked: true
+                };
+            } catch (error) {
+                youtubePolicyCache.delete(cleanId);
+
+                console.warn(
+                    "Could not check YouTube Made for Kids status; using privacy-enhanced playback:",
+                    error
+                );
+
+                // Fail toward the more privacy-protective host when the status
+                // cannot be checked. A later load can retry the status endpoint.
+                return { madeForKids: true, checked: false };
+            }
+        })();
+
+        youtubePolicyCache.set(cleanId, request);
+        return request;
+    }
+
+    function loadYouTubeApi() {
+        if (ytApiReady || ytApiLoading) {
             return;
         }
 
-        ytPlayer = new YT.Player("youtubePlayer", {
-            width: "100%",
-            height: "100%",
-            playerVars: {
-                autoplay: 1,
-                controls: 0,
+        ytApiLoading = true;
 
-                // Important: do NOT set cc_load_policy=0.
-                // YouTube documents only cc_load_policy=1 as the force-on mode,
-                // while cc_lang_pref without cc_load_policy starts with captions off.
-                cc_lang_pref: "en",
+        const youtubeApiScript = document.createElement("script");
+        youtubeApiScript.src = "https://www.youtube.com/iframe_api";
+        youtubeApiScript.addEventListener("error", () => {
+            ytApiLoading = false;
+            console.error("Could not load the YouTube IFrame API.");
+            reportState("error");
+        });
 
-                disablekb: 1,
-                enablejsapi: 1,
-                fs: 0,
-                iv_load_policy: 3,
-                playsinline: 1,
-                rel: 0,
-                origin: window.location.origin
-            },
+        document.head.appendChild(youtubeApiScript);
+    }
+
+    function destroyYouTubePlayer() {
+        if (ytPlayer) {
+            try {
+                ytPlayer.destroy();
+            } catch (error) {
+                console.warn("Could not destroy the previous YouTube player:", error);
+            }
+        }
+
+        ytPlayer = null;
+        ytPlayerReady = false;
+        ytPlayerHost = "";
+
+        const container = document.getElementById("youtubePlayer");
+        if (container) {
+            container.replaceChildren();
+        }
+    }
+
+    function createYouTubePlayer(request, usePrivacyHost) {
+        const container = document.getElementById("youtubePlayer");
+
+        if (!container || !request || !request.ContentId) {
+            reportState("error");
+            return;
+        }
+
+        destroyYouTubePlayer();
+
+        const host = usePrivacyHost
+            ? "https://www.youtube-nocookie.com"
+            : "https://www.youtube.com";
+
+        const startSeconds = parseStartSeconds(
+            request.Url || request.OriginalUrl || ""
+        );
+
+        const params = new URLSearchParams({
+            autoplay: "1",
+            controls: "0",
+            cc_lang_pref: "en",
+            disablekb: "1",
+            enablejsapi: "1",
+            fs: "0",
+            iv_load_policy: "3",
+            playsinline: "1",
+            rel: "0",
+            origin: window.location.origin
+        });
+
+        if (startSeconds > 0) {
+            params.set("start", String(startSeconds));
+        }
+
+        const iframe = document.createElement("iframe");
+        iframe.id = "youtubePlayerFrame";
+        iframe.src =
+            host +
+            "/embed/" +
+            encodeURIComponent(request.ContentId) +
+            "?" +
+            params.toString();
+        iframe.title = "YouTube video player";
+        iframe.setAttribute(
+            "allow",
+            "autoplay; encrypted-media; picture-in-picture"
+        );
+        iframe.setAttribute("frameborder", "0");
+
+        container.appendChild(iframe);
+
+        ytPlayerHost = host;
+        loadedRequestId = request.Id;
+        reportState("loading");
+
+        ytPlayer = new YT.Player(iframe, {
             events: {
                 onReady: function () {
                     ytPlayerReady = true;
@@ -666,13 +800,69 @@
 
                     applyDesiredMuteState();
 
-                    if (currentRequest) {
-                        loadCurrentMedia(true);
+                    if (pendingYouTubeLoad) {
+                        const pending = pendingYouTubeLoad;
+                        pendingYouTubeLoad = null;
+
+                        performYouTubeLoad(
+                            pending.request,
+                            true,
+                            pending.usePrivacyHost
+                        );
                     }
                 },
                 onStateChange: onYouTubeStateChange,
                 onError: onYouTubeError
             }
+        });
+    }
+
+    function performYouTubeLoad(request, forceReload, usePrivacyHost) {
+        const host = usePrivacyHost
+            ? "https://www.youtube-nocookie.com"
+            : "https://www.youtube.com";
+
+        if (!ytApiReady) {
+            pendingYouTubeLoad = {
+                request,
+                forceReload,
+                usePrivacyHost
+            };
+            loadYouTubeApi();
+            return;
+        }
+
+        if (!ytPlayer || ytPlayerHost !== host) {
+            pendingYouTubeLoad = null;
+            createYouTubePlayer(request, usePrivacyHost);
+            return;
+        }
+
+        if (!ytPlayerReady) {
+            pendingYouTubeLoad = {
+                request,
+                forceReload,
+                usePrivacyHost
+            };
+            return;
+        }
+
+        if (!forceReload && loadedRequestId === request.Id) {
+            pendingYouTubeLoad = null;
+            return;
+        }
+
+        const startSeconds = parseStartSeconds(
+            request.Url || request.OriginalUrl || ""
+        );
+
+        pendingYouTubeLoad = null;
+        loadedRequestId = request.Id;
+        reportState("loading");
+
+        ytPlayer.loadVideoById({
+            videoId: request.ContentId,
+            startSeconds
         });
     }
 
@@ -746,7 +936,7 @@
             .join("&");
     }
 
-    function openPreferencePlayer(command) {
+    async function openPreferencePlayer(command) {
         const provider =
             String(
                 command &&
@@ -796,8 +986,17 @@
             const startSeconds =
                 parseStartSeconds(url);
 
+            const policy =
+                await getYouTubePolicy(contentId);
+
+            const youtubeHost =
+                policy.madeForKids
+                    ? "https://www.youtube-nocookie.com"
+                    : "https://www.youtube.com";
+
             source =
-                "https://www.youtube.com/embed/" +
+                youtubeHost +
+                "/embed/" +
                 encodeURIComponent(contentId) +
                 "?autoplay=0" +
                 "&controls=1" +
@@ -1346,16 +1545,16 @@
         );
     }
 
-    function loadYouTube(request, forceReload) {
+    async function loadYouTube(request, forceReload) {
         hideFallback();
         clearNonInteractiveEndTimer();
         clearTwitchClip();
         clearMedal();
         clearTikTok();
         showYouTubePlayer();
-        ensureYouTubePlayer();
 
-        if (!ytPlayerReady || !ytPlayer) {
+        if (!request || !request.ContentId) {
+            reportState("error");
             return;
         }
 
@@ -1363,16 +1562,22 @@
             return;
         }
 
-        const startSeconds = parseStartSeconds(request.Url || request.OriginalUrl || "");
+        const sequence = ++youtubeLoadSequence;
+        const policy = await getYouTubePolicy(request.ContentId);
 
-        loadedRequestId = request.Id;
+        if (
+            sequence !== youtubeLoadSequence ||
+            !currentRequest ||
+            currentRequest.Id !== request.Id
+        ) {
+            return;
+        }
 
-        reportState("loading");
-
-        ytPlayer.loadVideoById({
-            videoId: request.ContentId,
-            startSeconds: startSeconds
-        });
+        performYouTubeLoad(
+            request,
+            forceReload,
+            policy.madeForKids
+        );
     }
 
     function loadCurrentMedia(forceReload = false) {
@@ -2160,12 +2365,19 @@
 
     window.onYouTubeIframeAPIReady = function () {
         ytApiReady = true;
-        ensureYouTubePlayer();
-    };
+        ytApiLoading = false;
 
-    const youtubeApiScript = document.createElement("script");
-    youtubeApiScript.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(youtubeApiScript);
+        if (pendingYouTubeLoad) {
+            const pending = pendingYouTubeLoad;
+            pendingYouTubeLoad = null;
+
+            performYouTubeLoad(
+                pending.request,
+                true,
+                pending.usePrivacyHost
+            );
+        }
+    };
 
     setInterval(syncPlayerCommand, 125);
     setInterval(syncFromStreamerBot, 500);

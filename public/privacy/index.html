@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - React Player</title>
+    <meta name="description" content="Privacy Policy for React Player, the free media request player for OBS and Streamer.bot.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://react.melkepakken.tv/privacy/">
+    <link rel="stylesheet" href="/legal.css">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0b0d10; color: #ece9e1; font-family: Arial, Verdana, sans-serif; font-size: 16px; line-height: 1.62; }
+    </style>
+</head>
+<body>
+<main class="legal-shell">
+    <header class="legal-header">
+        <div class="legal-kicker">REACT PLAYER / LEGAL</div>
+        <h1>Privacy Policy</h1>
+        <p class="legal-date">Effective: 17 August 2026</p>
+    </header>
+
+    <article class="legal-content">
+        <p class="plain-note"><strong>Plain version:</strong> React Player has no user accounts, advertising system, or analytics tracker. Most request data stays inside the streamer's own Streamer.bot installation. Hosting and embedded media providers still process ordinary internet connection data when their services are used.</p>
+
+        <h2>1. Who is responsible</h2>
+        <div class="business-card">
+            <strong>KVALVIK STUDIOS</strong>
+            <span>Sole proprietorship (ENK)</span>
+            <span>Organisation no. 936 409 113 · MVA-registered</span>
+            <span>8013 Bodø, Norway</span>
+            <span><a href="https://virksomhet.brreg.no/nb/oppslag/enheter/936409113" target="_blank" rel="noopener noreferrer">Official registered business details</a></span>
+            <span><a href="mailto:support@melkepakken.tv">support@melkepakken.tv</a></span>
+        </div>
+        <p>Kvalvik Studios is the data controller for the limited personal data described in this policy.</p>
+
+        <h2>2. What React Player does not do</h2>
+        <ul>
+            <li>No React Player account or Google/YouTube sign-in is required.</li>
+            <li>No first-party advertising, profiling, or analytics service is used.</li>
+            <li>React Player does not sell personal data.</li>
+            <li>React Player does not centrally store a streamer's request queue or history.</li>
+        </ul>
+
+        <h2>3. Data stored on the streamer's own computer</h2>
+        <p>The Streamer.bot package stores the queue, history, current request, playback settings, and related state inside the streamer's own Streamer.bot installation. Depending on which triggers the streamer enables, this local data can include a requester's display name or user ID, the submitted media URL, platform/origin information, and timestamps.</p>
+        <p>This local queue data is not sent to or stored by Kvalvik Studios. The streamer controls that local data and is responsible for how they use and retain viewer information in their own setup.</p>
+
+        <h2>4. Functional browser storage</h2>
+        <p>React Player uses limited first-party browser storage to make the tool work and remember choices:</p>
+        <ul>
+            <li><code>reactPlayerLanguage</code> remembers the selected dock language.</li>
+            <li><code>reactPlayerActionId.*</code> remembers resolved Streamer.bot action IDs so renamed actions keep working.</li>
+            <li><code>reactPlayerLegalAccepted</code> remembers that the Privacy Policy and Terms were accepted before downloading the package.</li>
+            <li>Embedded providers can store their own playback preferences in their own browser storage.</li>
+        </ul>
+        <p>You can remove first-party React Player storage by clearing site data for <code>react.melkepakken.tv</code>. Doing so resets saved website/dock choices.</p>
+
+        <h2>5. YouTube API Services</h2>
+        <p>React Player uses YouTube API Services. When a supported YouTube link is submitted, React Player sends the public YouTube video ID to a Cloudflare-hosted endpoint. That endpoint asks the YouTube Data API for the video's public duration and Made for Kids status.</p>
+        <ul>
+            <li>No YouTube account login or OAuth access is used.</li>
+            <li>No private YouTube account data is requested.</li>
+            <li>Successful duration and Made for Kids responses may be cached for up to 24 hours, keyed by video ID.</li>
+            <li>Ordinary YouTube videos use the normal YouTube embedded player. Videos identified as Made for Kids use YouTube's privacy-enhanced embed domain.</li>
+        </ul>
+        <p>Use of YouTube features is also subject to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>. You can read how Google handles information in the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>.</p>
+
+        <h2>6. Embedded media providers</h2>
+        <p>When a streamer plays media from a supported provider, React Player loads that provider's embedded player. The provider may receive technical information needed to deliver the media, such as the IP address, browser/device information, requested content ID, referrer information, and interactions with the embedded player. The provider may also use cookies or similar browser storage under its own policies.</p>
+        <ul>
+            <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google / YouTube Privacy Policy</a></li>
+            <li><a href="https://www.twitch.tv/p/en/legal/privacy-notice/" target="_blank" rel="noopener noreferrer">Twitch Privacy Notice</a></li>
+            <li><a href="https://medal.tv/privacy" target="_blank" rel="noopener noreferrer">Medal Privacy Policy</a></li>
+            <li><a href="https://www.tiktok.com/legal/page/eea/privacy-policy/en" target="_blank" rel="noopener noreferrer">TikTok EEA Privacy Policy</a></li>
+        </ul>
+        <p>The dock and player also load the Streamer.bot browser client through jsDelivr. jsDelivr and its CDN providers receive ordinary request metadata needed to deliver that file. See the <a href="https://www.jsdelivr.com/terms/privacy-policy" target="_blank" rel="noopener noreferrer">jsDelivr Privacy Policy</a>.</p>
+
+        <h2>7. Hosting and security logs</h2>
+        <p>React Player is hosted and protected through Cloudflare. Cloudflare processes ordinary network and request data needed to deliver and secure the service. This can include IP addresses, request URLs, traffic routing data, browser/device information, and security events.</p>
+        <p>The legal basis for this processing is Kvalvik Studios' legitimate interest in providing, securing, and maintaining React Player. See the <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare Privacy Policy</a>.</p>
+
+        <h2>8. Cookies and similar technologies</h2>
+        <p>React Player does not place optional first-party advertising or analytics cookies. Its own browser storage is limited to the functional items listed above. React Player therefore does not currently show a general cookie banner.</p>
+        <p>Third-party media players may use their own cookies or similar technologies when the streamer explicitly requests and loads their content. React Player does not use those technologies to create advertising profiles.</p>
+
+        <h2>9. Contact messages</h2>
+        <p>If you email Kvalvik Studios, the message and contact information you provide are used to answer the request, provide support, handle privacy requests, prevent abuse, or meet legal obligations. The legal basis is taking steps at your request and Kvalvik Studios' legitimate interest in operating and supporting the project.</p>
+        <p>Support correspondence is normally deleted when it is no longer reasonably needed. Closed support matters are reviewed and may be retained for up to 24 months where useful for support history, security, dispute handling, or legal obligations.</p>
+
+        <h2>10. International processing</h2>
+        <p>Some infrastructure and media providers operate internationally and may process data outside Norway or the EEA. Their own privacy policies describe the safeguards and legal mechanisms they use for international transfers.</p>
+
+        <h2>11. Your rights</h2>
+        <p>Where the GDPR applies, you may have rights including access, correction, deletion, restriction, objection, and data portability, depending on the processing involved.</p>
+        <p>Because React Player has no user accounts and intentionally keeps most state on the streamer's own computer, Kvalvik Studios may hold little or no information that identifies you. Privacy questions and requests can be sent to <a href="mailto:support@melkepakken.tv">support@melkepakken.tv</a>.</p>
+        <p>You may also complain to the <a href="https://www.datatilsynet.no/" target="_blank" rel="noopener noreferrer">Norwegian Data Protection Authority (Datatilsynet)</a>.</p>
+
+        <h2>12. Changes</h2>
+        <p>This policy may be updated when React Player, third-party integrations, or legal requirements change. The effective date at the top will be updated when the policy changes materially.</p>
+
+        <nav class="legal-nav" aria-label="Legal navigation">
+            <a href="/">Back to React Player</a>
+            <a href="/terms/">Terms of Use</a>
+            <a href="https://github.com/Melkepakken/React-Player" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </nav>
+    </article>
+</main>
+</body>
+</html>

@@ -89,11 +89,11 @@ export async function onRequestGet(context) {
     const youtubeUrl = new URL(
         "https://www.googleapis.com/youtube/v3/videos"
     );
-    youtubeUrl.searchParams.set("part", "contentDetails");
+    youtubeUrl.searchParams.set("part", "contentDetails,status");
     youtubeUrl.searchParams.set("id", videoId);
     youtubeUrl.searchParams.set(
         "fields",
-        "items(contentDetails(duration))"
+        "items(contentDetails(duration),status(madeForKids))"
     );
 
     let youtubeResponse;
@@ -149,26 +149,41 @@ export async function onRequestGet(context) {
         );
     }
 
-    const duration =
+    const item =
         youtubePayload &&
         Array.isArray(youtubePayload.items) &&
-        youtubePayload.items.length > 0 &&
-        youtubePayload.items[0] &&
-        youtubePayload.items[0].contentDetails &&
-        youtubePayload.items[0].contentDetails.duration;
+        youtubePayload.items.length > 0
+            ? youtubePayload.items[0]
+            : null;
 
-    const payload =
-        typeof duration === "string" && duration
-            ? {
-                items: [
-                    {
-                        contentDetails: {
-                            duration
-                        }
+    const duration =
+        item &&
+        item.contentDetails &&
+        typeof item.contentDetails.duration === "string"
+            ? item.contentDetails.duration
+            : "";
+
+    const madeForKids =
+        Boolean(
+            item &&
+            item.status &&
+            item.status.madeForKids === true
+        );
+
+    const payload = item
+        ? {
+            items: [
+                {
+                    contentDetails: {
+                        duration
+                    },
+                    status: {
+                        madeForKids
                     }
-                ]
-            }
-            : { items: [] };
+                }
+            ]
+        }
+        : { items: [] };
 
     const response = jsonResponse(
         payload,

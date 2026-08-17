@@ -1,0 +1,233 @@
+:root {
+    --legal-bg: #0b0d10;
+    --legal-panel: #111419;
+    --legal-panel-2: #0f1217;
+    --legal-line: #39434f;
+    --legal-text: #ece9e1;
+    --legal-muted: #b9c0c8;
+    --legal-soft: #737e89;
+    --legal-violet: #a66cff;
+    --legal-cyan: #65d7ff;
+    --legal-amber: #ffcc63;
+}
+
+.legal-shell {
+    width: min(860px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 50px;
+}
+
+.legal-header {
+    position: relative;
+    padding: 20px;
+    border: 1px solid var(--legal-line);
+    background: linear-gradient(180deg, #15191f, #0f1217);
+}
+
+.legal-header::before,
+.legal-header::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+}
+
+.legal-header::before {
+    top: -1px;
+    left: -1px;
+    border-top: 3px solid var(--legal-cyan);
+    border-left: 3px solid var(--legal-cyan);
+}
+
+.legal-header::after {
+    right: -1px;
+    bottom: -1px;
+    border-right: 3px solid var(--legal-violet);
+    border-bottom: 3px solid var(--legal-violet);
+}
+
+.legal-kicker {
+    color: var(--legal-cyan);
+    font: 800 11px Consolas, "Courier New", monospace;
+    letter-spacing: .09em;
+}
+
+.legal-header h1 {
+    margin: 5px 0 7px;
+    color: var(--legal-text);
+    font-size: clamp(30px, 6vw, 44px);
+    line-height: 1.1;
+}
+
+.legal-date {
+    margin: 0;
+    color: var(--legal-soft);
+    font-size: 13px;
+}
+
+.legal-content {
+    margin-top: 14px;
+    padding: 22px;
+    border: 1px solid #2b323c;
+    background: var(--legal-panel-2);
+}
+
+.legal-content h2 {
+    margin: 28px 0 7px;
+    color: var(--legal-text);
+    font-size: 20px;
+}
+
+.legal-content h2:first-child {
+    margin-top: 0;
+}
+
+.legal-content p,
+.legal-content li {
+    color: var(--legal-muted);
+}
+
+.legal-content ul {
+    padding-left: 21px;
+}
+
+.legal-content li + li {
+    margin-top: 5px;
+}
+
+.legal-content a {
+    color: var(--legal-cyan);
+    font-weight: 700;
+    text-underline-offset: 2px;
+}
+
+.plain-note {
+    padding: 10px 13px;
+    border-left: 3px solid var(--legal-violet);
+    background: rgba(166, 108, 255, .08);
+}
+
+.business-card {
+    display: grid;
+    gap: 3px;
+    margin: 11px 0;
+    padding: 12px 13px;
+    border: 1px solid var(--legal-line);
+    background: #11151a;
+    color: var(--legal-muted);
+}
+
+.business-card strong {
+    color: var(--legal-text);
+}
+
+.legal-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid #2b323c;
+    font-size: 13px;
+}
+
+.legal-nav a {
+    color: #a7aeb7;
+}
+
+/* One-time Terms/Privacy acceptance shown only when a user downloads the package. */
+.react-legal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(5, 7, 9, .88);
+    backdrop-filter: blur(3px);
+}
+
+.react-legal-dialog {
+    width: min(520px, 100%);
+    border: 1px solid var(--legal-line);
+    background: #15191f;
+    color: var(--legal-text);
+    box-shadow: 0 22px 70px rgba(0, 0, 0, .55);
+    font-family: Arial, Verdana, sans-serif;
+}
+
+.react-legal-dialog::before {
+    content: "REACT PLAYER / FIRST DOWNLOAD";
+    display: block;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--legal-line);
+    background: #0f1217;
+    color: var(--legal-cyan);
+    font: 800 10px Consolas, "Courier New", monospace;
+    letter-spacing: .08em;
+}
+
+.react-legal-dialog-body {
+    padding: 18px;
+}
+
+.react-legal-dialog h2 {
+    margin: 0 0 8px;
+    font-size: 21px;
+    line-height: 1.2;
+}
+
+.react-legal-dialog p {
+    margin: 7px 0 0;
+    color: #a7aeb7;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.react-legal-dialog a {
+    color: var(--legal-cyan);
+    font-weight: 700;
+    text-underline-offset: 2px;
+}
+
+.react-legal-dialog-links,
+.react-legal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 15px;
+}
+
+.react-legal-button {
+    min-height: 38px;
+    padding: 8px 13px;
+    border: 1px solid var(--legal-violet);
+    border-radius: 0;
+    background: #51238b;
+    color: #fff;
+    cursor: pointer;
+    font: 800 12px Consolas, "Courier New", monospace;
+}
+
+.react-legal-button:hover,
+.react-legal-button:focus-visible {
+    background: #6930aa;
+}
+
+.react-legal-button.secondary {
+    border-color: var(--legal-line);
+    background: #1c2229;
+    color: #d0d4d9;
+}
+
+.react-legal-note {
+    color: var(--legal-soft) !important;
+    font-size: 12px !important;
+}
+
+@media (max-width: 560px) {
+    .legal-content {
+        padding: 17px;
+    }
+}
