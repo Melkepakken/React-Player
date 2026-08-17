@@ -8,6 +8,7 @@ function jsonResponse(payload, status, headers = {}) {
             status,
             headers: {
                 "Content-Type": "application/json; charset=utf-8",
+                "X-Robots-Tag": "noindex, nofollow",
                 ...headers
             }
         }

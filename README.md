@@ -1,5 +1,9 @@
 # React Player
 
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://react.melkepakken.tv/#changelog)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Freact.melkepakken.tv&label=website)](https://react.melkepakken.tv/)
+[![License](https://img.shields.io/github/license/Melkepakken/React-Player)](LICENSE)
+
 React Player is a free media request player for OBS, powered by Streamer.bot.
 
 It takes supported video links from chat and Streamer.bot events, checks them, adds them to one queue, and gives you control from a dock inside OBS.
