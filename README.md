@@ -1,4 +1,4 @@
-# <img src="public/favicon.png" alt="React Player logo" width="26"> React Player
+# <img src="public/favicon.png" alt="React Player logo" width="32"> React Player
 
 [![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://react.melkepakken.tv/#changelog)
 [![Website](https://img.shields.io/website?url=https%3A%2F%2Freact.melkepakken.tv&label=website)](https://react.melkepakken.tv/)
