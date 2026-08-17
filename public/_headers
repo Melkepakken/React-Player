@@ -1,0 +1,5 @@
+/v1/*
+  Cache-Control: no-store
+
+/api/*
+  Cache-Control: no-store

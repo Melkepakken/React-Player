@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Player</title>
+    <script src="/v1/shared/i18n.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@streamerbot/client/dist/streamerbot-client.js"></script>
+    <script src="/v1/shared/streamerbot-actions.js"></script>
+    <style>
+        html,
+        body,
+        #mediaRoot,
+        #youtubePlayer,
+        #twitchClipPlayer,
+        #medalPlayer,
+        #tiktokPlayer {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+
+        body {
+            position: relative;
+        }
+
+        #mediaRoot {
+            position: relative;
+        }
+
+        #youtubePlayer,
+        #youtubePlayer iframe,
+        #twitchClipPlayer,
+        #twitchClipPlayer iframe,
+        #medalPlayer,
+        #medalPlayer iframe,
+        #tiktokPlayer,
+        #tiktokPlayer iframe {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
+            border: 0;
+        }
+
+        #twitchClipPlayer,
+        #medalPlayer,
+        #tiktokPlayer {
+            display: none;
+            background: #000;
+        }
+
+        /*
+         * This transparent layer owns pointer input while using OBS Interact.
+         * That prevents YouTube's own hover UI from appearing over the stream.
+         */
+        #interactionSurface {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            outline: none;
+            cursor: default;
+        }
+
+        #customControls {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 4px;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 120ms ease, transform 120ms ease;
+            pointer-events: none;
+        }
+
+        #interactionSurface.controls-visible #customControls {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        #overlayPlayButton {
+            flex: 0 0 auto;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #fff;
+            font-size: 19px;
+            line-height: 28px;
+            text-align: center;
+            cursor: pointer;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+        }
+
+        #seekSlider {
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 4px;
+            margin: 0;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        #seekSlider::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border: 0;
+            border-radius: 50%;
+            background: #ff1744;
+            cursor: pointer;
+        }
+
+        #seekSlider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border: 0;
+            border-radius: 50%;
+            background: #ff1744;
+            cursor: pointer;
+        }
+
+        /*
+         * Audio-only mode deliberately uses opacity instead of display:none.
+         * The embedded players remain loaded and active, so playback/audio
+         * continue while the Browser Source outputs transparent pixels.
+         */
+        html.audio-only,
+        html.audio-only body,
+        html.audio-only #mediaRoot {
+            background: transparent !important;
+        }
+
+        html.audio-only #youtubePlayer,
+        html.audio-only #twitchClipPlayer,
+        html.audio-only #medalPlayer,
+        html.audio-only #tiktokPlayer,
+        html.audio-only #interactionSurface {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        html.audio-only #fallback {
+            display: none !important;
+        }
+
+        #fallback {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #fff;
+            background: #000;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        /*
+         * Playback preferences use a completely separate, disposable embed.
+         * It intentionally sits above the normal player and its custom UI so
+         * providers can expose their own full controls through OBS Interact.
+         */
+        #preferencePlayer {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #preferencePlayer.active {
+            display: block;
+        }
+
+        #preferencePlayer iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        html.audio-only #preferencePlayer.active {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            background: #000 !important;
+        }
+    </style>
+</head>
+<body>
+<div id="mediaRoot">
+    <div id="youtubePlayer"></div>
+    <div id="twitchClipPlayer"></div>
+    <div id="medalPlayer"></div>
+    <div id="tiktokPlayer"></div>
+
+    <div id="interactionSurface" tabindex="0" aria-label="Video controls" data-i18n-aria-label="player.controls">
+        <div id="customControls">
+            <button id="overlayPlayButton" type="button" aria-label="Play or pause" data-i18n-aria-label="player.playPause">▶</button>
+            <input id="seekSlider" type="range" min="0" max="100" value="0" step="0.1" aria-label="Video position" data-i18n-aria-label="player.videoPosition">
+        </div>
+    </div>
+</div>
+<div id="fallback"></div>
+<div id="preferencePlayer" hidden aria-hidden="true"></div>
+
+<script>
+    const CURRENT_GLOBAL = "ReactCurrent";
+    const COMMAND_GLOBAL = "ReactPlayerCommand";
+    const VOLUME_GLOBAL = "ReactPlayerVolume";
+    const MUTED_GLOBAL = "ReactPlayerMuted";
+    const VIDEO_HIDDEN_GLOBAL = "ReactPlayerVideoHidden";
+    const reactActions =
+        window.ReactPlayerActions;
+
+    let streamerBotConnected = false;
+    let client;
+
+    client = new StreamerbotClient({
+        host: "127.0.0.1",
+        port: 8080,
+        endpoint: "/",
+
+        onConnect: async () => {
+            streamerBotConnected = true;
+
+            try {
+                await reactActions.resolve(
+                    client
+                );
+
+                // Initializes globals that may not exist yet after upgrading
+                // or after a Streamer.bot restart.
+                await reactActions.run(
+                    client,
+                    "control",
+                    { operation: "init" }
+                );
+
+                await syncFromStreamerBot();
+                await syncPlayerCommand();
+            } catch (error) {
+                console.error("React Player initialization failed:", error);
+            }
+        },
+
+        onDisconnect: () => {
+            streamerBotConnected = false;
+        },
+
+        onError: (error) => {
+            console.error("React Player Streamer.bot client error:", error);
+        }
+    });
+
+    const mediaRoot = document.getElementById("mediaRoot");
+    const twitchClipPlayer = document.getElementById("twitchClipPlayer");
+    const medalPlayer = document.getElementById("medalPlayer");
+    const tiktokPlayer = document.getElementById("tiktokPlayer");
+    const fallback = document.getElementById("fallback");
+    const preferencePlayer = document.getElementById("preferencePlayer");
+    const interactionSurface = document.getElementById("interactionSurface");
+    const customControls = document.getElementById("customControls");
+    const overlayPlayButton = document.getElementById("overlayPlayButton");
+    const seekSlider = document.getElementById("seekSlider");
+
+    const PLAYER_ERROR_FALLBACKS = Object.freeze({
+        "player.error.invalidTikTok": "Invalid TikTok video.",
+        "player.error.invalidMedal": "Invalid Medal clip.",
+        "player.error.invalidTwitch": "Invalid Twitch Clip.",
+        "player.error.unsupportedMedia":
+            "This media type is not supported by React Player yet."
+    });
+
+    const playerI18n =
+        window.ReactPlayerI18n || null;
+
+    let ytApiReady = false;
+    let ytPlayer = null;
+    let ytPlayerReady = false;
+
+    let currentRequest = null;
+    let loadedRequestId = "";
+    let lastCommandNonce = "";
+    let commandInitialized = false;
+    let lastReportedState = "";
+    let lastAppliedVolume = -1;
+    let desiredMuted = false;
+    let videoHidden = false;
+    let controlsHideTimer = null;
+    let seeking = false;
+    let syncing = false;
+    let commandSyncing = false;
+    let telemetryBusy = false;
+    let nonInteractiveEndTimer = null;
+    let tiktokIframe = null;
+    let tiktokCurrentTime = 0;
+    let tiktokDuration = 0;
+    let tiktokPlayerState = -1;
+    let tiktokActualMuted = null;
+    let tiktokUnmuteAttempts = 0;
+    let activeFallbackKey = "";
+    let preferenceRequest = null;
+    let pendingPreferenceCommand = null;
+
+    function translatePlayerText(key) {
+        if (
+            playerI18n &&
+            typeof playerI18n.t === "function"
+        ) {
+            try {
+                const translated =
+                    playerI18n.t(key);
+
+                if (
+                    typeof translated === "string" &&
+                    translated &&
+                    translated !== key
+                ) {
+                    return translated;
+                }
+            } catch (error) {
+                // English fallbacks below keep localization failures isolated
+                // from Streamer.bot and player startup.
+            }
+        }
+
+        return PLAYER_ERROR_FALLBACKS[key] || key;
+    }
+
+    function applyPlayerLocalization() {
+        if (!playerI18n) {
+            return;
+        }
+
+        if (
+            typeof playerI18n.getLanguage === "function"
+        ) {
+            try {
+                const language =
+                    playerI18n.getLanguage();
+
+                if (language) {
+                    document.documentElement.lang =
+                        language;
+                }
+            } catch (error) {
+                // Keep the static English document language on failure.
+            }
+        }
+
+        if (
+            typeof playerI18n.translateDocument === "function"
+        ) {
+            try {
+                playerI18n.translateDocument(document);
+            } catch (error) {
+                // Keep the static English aria labels on failure.
+            }
+        }
+
+        if (activeFallbackKey) {
+            fallback.textContent =
+                translatePlayerText(activeFallbackKey);
+        }
+    }
+
+    function initializePlayerLocalization() {
+        if (!playerI18n) {
+            return;
+        }
+
+        if (
+            typeof playerI18n.onChange === "function"
+        ) {
+            try {
+                playerI18n.onChange(
+                    applyPlayerLocalization
+                );
+            } catch (error) {
+                // Initialization below can still apply the first language.
+            }
+        }
+
+        if (typeof playerI18n.init !== "function") {
+            applyPlayerLocalization();
+            return;
+        }
+
+        try {
+            Promise.resolve(playerI18n.init()).then(
+                applyPlayerLocalization,
+                applyPlayerLocalization
+            );
+        } catch (error) {
+            applyPlayerLocalization();
+        }
+    }
+
+    initializePlayerLocalization();
+
+    function getGlobalValue(response) {
+        if (!response || !response.variable) {
+            return null;
+        }
+
+        return response.variable.value;
+    }
+
+    function parseJson(value, fallbackValue) {
+        if (value === undefined || value === null || value === "") {
+            return fallbackValue;
+        }
+
+        if (typeof value === "object") {
+            return value;
+        }
+
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            console.error("React Player JSON parse failed:", error);
+            return fallbackValue;
+        }
+    }
+
+    function parseStartSeconds(url) {
+        if (!url) {
+            return 0;
+        }
+
+        try {
+            const parsed = new URL(url);
+            const raw = parsed.searchParams.get("t") || parsed.searchParams.get("start");
+
+            if (!raw) {
+                return 0;
+            }
+
+            if (/^\d+$/.test(raw)) {
+                return Number(raw);
+            }
+
+            const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+
+            if (!match) {
+                return 0;
+            }
+
+            return (
+                (Number(match[1] || 0) * 3600) +
+                (Number(match[2] || 0) * 60) +
+                Number(match[3] || 0)
+            );
+        } catch (error) {
+            return 0;
+        }
+    }
+
+    async function reportState(state) {
+        if (state === lastReportedState) {
+            return;
+        }
+
+        lastReportedState = state;
+
+        try {
+            await reactActions.run(
+                client,
+                "control",
+                {
+                    operation: "playerstate",
+                    state: state
+                }
+            );
+        } catch (error) {
+            console.error("Could not report React Player state:", error);
+        }
+    }
+
+    async function reportExternalTelemetry(
+        currentTime,
+        duration,
+        buffered = 0)
+    {
+        if (
+            !streamerBotConnected ||
+            !currentRequest
+        ) {
+            return;
+        }
+
+        try {
+            await reactActions.run(
+                client,
+                "control",
+                {
+                    operation: "telemetry",
+                    requestId:
+                        currentRequest.Id || "",
+                    currentTime:
+                        Math.max(
+                            0,
+                            Number(currentTime || 0)
+                        ),
+                    duration:
+                        Math.max(
+                            0,
+                            Number(duration || 0)
+                        ),
+                    buffered:
+                        Math.max(
+                            0,
+                            Math.min(
+                                1,
+                                Number(buffered || 0)
+                            )
+                        )
+                }
+            );
+        } catch (error) {
+            console.error(
+                "Could not report external React Player telemetry:",
+                error
+            );
+        }
+    }
+
+    async function reportTelemetry() {
+        if (
+            !streamerBotConnected ||
+            telemetryBusy ||
+            !currentRequest ||
+            currentProvider() !== "youtube" ||
+            !ytPlayerReady ||
+            !ytPlayer
+        ) {
+            return;
+        }
+
+        telemetryBusy = true;
+
+        try {
+            const currentTime = Number(ytPlayer.getCurrentTime() || 0);
+            const duration = Number(ytPlayer.getDuration() || 0);
+            const buffered = Number(ytPlayer.getVideoLoadedFraction() || 0);
+
+            await reactActions.run(
+                client,
+                "control",
+                {
+                    operation: "telemetry",
+                    requestId: currentRequest.Id || "",
+                    currentTime: currentTime,
+                    duration: duration,
+                    buffered: buffered
+                }
+            );
+        } catch (error) {
+            console.error("Could not report React Player telemetry:", error);
+        } finally {
+            telemetryBusy = false;
+        }
+    }
+
+    function parseBool(value) {
+        if (typeof value === "boolean") {
+            return value;
+        }
+
+        if (typeof value === "number") {
+            return value !== 0;
+        }
+
+        return String(
+            value || ""
+        ).toLowerCase() === "true";
+    }
+
+    function mapYouTubeState(state) {
+        if (!window.YT || !window.YT.PlayerState) {
+            return "idle";
+        }
+
+        switch (state) {
+            case YT.PlayerState.PLAYING:
+                return "playing";
+            case YT.PlayerState.PAUSED:
+                return "paused";
+            case YT.PlayerState.ENDED:
+                return "ended";
+            case YT.PlayerState.BUFFERING:
+                return "loading";
+            case YT.PlayerState.CUED:
+                return "paused";
+            default:
+                return currentRequest ? "loading" : "idle";
+        }
+    }
+
+    function onYouTubeStateChange(event) {
+        if (!currentRequest) {
+            return;
+        }
+
+        reportState(mapYouTubeState(event.data));
+        reportTelemetry();
+        applyDesiredMuteState();
+    }
+
+    function onYouTubeError(event) {
+        console.error("YouTube player error:", event.data);
+        reportState("error");
+    }
+
+    function ensureYouTubePlayer() {
+        if (!ytApiReady || ytPlayer) {
+            return;
+        }
+
+        ytPlayer = new YT.Player("youtubePlayer", {
+            width: "100%",
+            height: "100%",
+            playerVars: {
+                autoplay: 1,
+                controls: 0,
+
+                // Important: do NOT set cc_load_policy=0.
+                // YouTube documents only cc_load_policy=1 as the force-on mode,
+                // while cc_lang_pref without cc_load_policy starts with captions off.
+                cc_lang_pref: "en",
+
+                disablekb: 1,
+                enablejsapi: 1,
+                fs: 0,
+                iv_load_policy: 3,
+                playsinline: 1,
+                rel: 0,
+                origin: window.location.origin
+            },
+            events: {
+                onReady: function () {
+                    ytPlayerReady = true;
+
+                    if (lastAppliedVolume >= 0) {
+                        ytPlayer.setVolume(lastAppliedVolume);
+                    }
+
+                    applyDesiredMuteState();
+
+                    if (currentRequest) {
+                        loadCurrentMedia(true);
+                    }
+                },
+                onStateChange: onYouTubeStateChange,
+                onError: onYouTubeError
+            }
+        });
+    }
+
+    function showFallback(messageKey) {
+        activeFallbackKey = messageKey;
+        fallback.textContent =
+            translatePlayerText(messageKey);
+        fallback.style.display = "flex";
+        mediaRoot.style.display = "none";
+    }
+
+    function hideFallback() {
+        activeFallbackKey = "";
+        fallback.style.display = "none";
+        mediaRoot.style.display = "block";
+    }
+
+    function currentProvider() {
+        return String(
+            currentRequest &&
+            currentRequest.Provider
+                ? currentRequest.Provider
+                : ""
+        ).toLowerCase();
+    }
+
+    function closePreferencePlayer() {
+        pendingPreferenceCommand = null;
+        preferenceRequest = null;
+        preferencePlayer.replaceChildren();
+        preferencePlayer.classList.remove("active");
+        preferencePlayer.hidden = true;
+        preferencePlayer.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+
+        document.documentElement.classList.remove(
+            "preference-mode"
+        );
+    }
+
+    function getPreferenceTwitchParentQuery() {
+        const parents = [];
+
+        const hostname =
+            String(
+                window.location.hostname ||
+                ""
+            ).trim();
+
+        if (hostname) {
+            parents.push(hostname);
+        }
+
+        // Match the normal Twitch Clip embed's supported local hosts.
+        if (!parents.includes("localhost")) {
+            parents.push("localhost");
+        }
+
+        if (!parents.includes("127.0.0.1")) {
+            parents.push("127.0.0.1");
+        }
+
+        return parents
+            .map(
+                (parent) =>
+                    "parent=" +
+                    encodeURIComponent(parent)
+            )
+            .join("&");
+    }
+
+    function openPreferencePlayer(command) {
+        const provider =
+            String(
+                command &&
+                command.Provider
+                    ? command.Provider
+                    : ""
+            ).trim().toLowerCase();
+
+        const contentId =
+            String(
+                command &&
+                command.ContentId
+                    ? command.ContentId
+                    : ""
+            ).trim();
+
+        const url =
+            String(
+                command &&
+                command.Url
+                    ? command.Url
+                    : ""
+            ).trim();
+
+        if (
+            !contentId ||
+            ![
+                "youtube",
+                "twitch",
+                "medal",
+                "tiktok"
+            ].includes(provider)
+        ) {
+            closePreferencePlayer();
+
+            console.warn(
+                "Playback preferences received unsupported media."
+            );
+
+            return;
+        }
+
+        let source = "";
+        let title = "Playback preferences";
+
+        if (provider === "youtube") {
+            const startSeconds =
+                parseStartSeconds(url);
+
+            source =
+                "https://www.youtube.com/embed/" +
+                encodeURIComponent(contentId) +
+                "?autoplay=0" +
+                "&controls=1" +
+                "&disablekb=0" +
+                "&enablejsapi=1" +
+                "&fs=1" +
+                "&playsinline=1" +
+                "&origin=" +
+                encodeURIComponent(
+                    window.location.origin
+                );
+
+            if (startSeconds > 0) {
+                source +=
+                    "&start=" +
+                    encodeURIComponent(
+                        String(startSeconds)
+                    );
+            }
+
+            title =
+                "YouTube playback preferences";
+        } else if (provider === "twitch") {
+            source =
+                "https://clips.twitch.tv/embed" +
+                "?clip=" +
+                encodeURIComponent(contentId) +
+                "&" +
+                getPreferenceTwitchParentQuery() +
+                "&autoplay=false";
+
+            title =
+                "Twitch Clip playback preferences";
+        } else if (provider === "medal") {
+            source =
+                "https://medal.tv/clip/" +
+                encodeURIComponent(contentId) +
+                "?autoplay=0" +
+                "&loop=0";
+
+            title =
+                "Medal playback preferences";
+        } else {
+            source =
+                "https://www.tiktok.com/player/v1/" +
+                encodeURIComponent(contentId) +
+                "?autoplay=0" +
+                "&loop=0" +
+                "&controls=1";
+
+            title =
+                "TikTok playback preferences";
+        }
+
+        closePreferencePlayer();
+
+        const iframe =
+            document.createElement("iframe");
+
+        iframe.src = source;
+        iframe.title = title;
+
+        iframe.setAttribute(
+            "allow",
+            "autoplay; encrypted-media; fullscreen; picture-in-picture"
+        );
+
+        iframe.setAttribute(
+            "allowfullscreen",
+            ""
+        );
+
+        iframe.setAttribute(
+            "frameborder",
+            "0"
+        );
+
+        preferenceRequest = {
+            Provider: provider,
+            ContentId: contentId,
+            Url: url
+        };
+
+        preferencePlayer.appendChild(iframe);
+        preferencePlayer.hidden = false;
+        preferencePlayer.classList.add("active");
+        preferencePlayer.setAttribute(
+            "aria-hidden",
+            "false"
+        );
+
+        document.documentElement.classList.add(
+            "preference-mode"
+        );
+    }
+
+    function requestPreferencePlayer(command) {
+        pendingPreferenceCommand = command;
+
+        // Confirm ReactCurrent through the existing authoritative sync before
+        // showing the layer. This also avoids opening over a locally stale
+        // normal player immediately after it was stopped.
+        syncFromStreamerBot();
+    }
+
+    function clearNonInteractiveEndTimer() {
+        if (nonInteractiveEndTimer) {
+            clearTimeout(
+                nonInteractiveEndTimer
+            );
+
+            nonInteractiveEndTimer = null;
+        }
+    }
+
+    function scheduleNonInteractiveEnd(request) {
+        clearNonInteractiveEndTimer();
+
+        const durationSeconds =
+            Math.max(
+                0,
+                Number(
+                    request &&
+                    request.DurationSeconds
+                        ? request.DurationSeconds
+                        : 0
+                )
+            );
+
+        if (durationSeconds <= 0) {
+            return;
+        }
+
+        // Twitch Clips expose no playback-ended JavaScript event.
+        // Start the timer when the official clip iframe finishes loading,
+        // with a small grace period for autoplay to actually begin.
+        const delayMs =
+            Math.round(
+                durationSeconds * 1000
+            ) +
+            1250;
+
+        nonInteractiveEndTimer =
+            setTimeout(
+                () => {
+                    nonInteractiveEndTimer = null;
+
+                    if (
+                        currentRequest &&
+                        currentRequest.Id === request.Id &&
+                        (
+                            currentProvider() === "twitch" ||
+                            currentProvider() === "medal"
+                        )
+                    ) {
+                        reportState(
+                            "ended"
+                        );
+                    }
+                },
+                delayMs
+            );
+    }
+
+    function clearTwitchClip() {
+        twitchClipPlayer.innerHTML = "";
+        twitchClipPlayer.style.display = "none";
+    }
+
+    function clearMedal() {
+        medalPlayer.innerHTML = "";
+        medalPlayer.style.display = "none";
+    }
+
+    function clearTikTok() {
+        tiktokIframe = null;
+        tiktokCurrentTime = 0;
+        tiktokDuration = 0;
+        tiktokPlayerState = -1;
+        tiktokActualMuted = null;
+        tiktokUnmuteAttempts = 0;
+        tiktokPlayer.innerHTML = "";
+        tiktokPlayer.style.display = "none";
+    }
+
+    function showYouTubePlayer() {
+        document.getElementById("youtubePlayer").style.display = "block";
+        twitchClipPlayer.style.display = "none";
+        medalPlayer.style.display = "none";
+        tiktokPlayer.style.display = "none";
+        interactionSurface.style.display = "block";
+    }
+
+    function showTwitchPlayer() {
+        document.getElementById("youtubePlayer").style.display = "none";
+        twitchClipPlayer.style.display = "block";
+        medalPlayer.style.display = "none";
+        tiktokPlayer.style.display = "none";
+
+        // Twitch Clips do not expose our YouTube-style playback API.
+        interactionSurface.style.display = "none";
+    }
+
+    function showMedalPlayer() {
+        document.getElementById("youtubePlayer").style.display = "none";
+        twitchClipPlayer.style.display = "none";
+        medalPlayer.style.display = "block";
+        tiktokPlayer.style.display = "none";
+
+        // Medal uses its own embedded player controls.
+        interactionSurface.style.display = "none";
+    }
+
+    function showTikTokPlayer() {
+        document.getElementById("youtubePlayer").style.display = "none";
+        twitchClipPlayer.style.display = "none";
+        medalPlayer.style.display = "none";
+        tiktokPlayer.style.display = "block";
+
+        // Leave the official TikTok iframe interactive so first-run cookie/
+        // quality preferences can still be changed via OBS Interact.
+        interactionSurface.style.display = "none";
+    }
+
+    function sendTikTokCommand(
+        type,
+        value)
+    {
+        if (
+            !tiktokIframe ||
+            !tiktokIframe.contentWindow
+        ) {
+            return;
+        }
+
+        const message = {
+            type: type,
+            "x-tiktok-player": true
+        };
+
+        if (value !== undefined) {
+            message.value = value;
+        }
+
+        tiktokIframe.contentWindow.postMessage(
+            message,
+            "*"
+        );
+    }
+
+    function loadTikTokVideo(
+        request,
+        forceReload)
+    {
+        hideFallback();
+
+        if (
+            !request ||
+            !request.ContentId
+        ) {
+            showFallback("player.error.invalidTikTok");
+            reportState("error");
+            return;
+        }
+
+        if (
+            !forceReload &&
+            loadedRequestId === request.Id
+        ) {
+            return;
+        }
+
+        if (ytPlayerReady && ytPlayer) {
+            try {
+                ytPlayer.stopVideo();
+            } catch (error) {
+                console.warn(
+                    "Could not stop YouTube before TikTok:",
+                    error
+                );
+            }
+        }
+
+        clearNonInteractiveEndTimer();
+        clearTwitchClip();
+        clearMedal();
+        clearTikTok();
+
+        loadedRequestId = request.Id;
+
+        showTikTokPlayer();
+        reportState("loading");
+
+        const iframe =
+            document.createElement("iframe");
+
+        iframe.src =
+            "https://www.tiktok.com/player/v1/" +
+            encodeURIComponent(
+                request.ContentId
+            ) +
+            "?autoplay=1" +
+            "&loop=0" +
+            "&controls=1" +
+            "&music_info=0" +
+            "&description=0" +
+            "&rel=0" +
+            "&closed_caption=0" +
+            "&muted=" +
+            (
+                desiredMuted
+                    ? "1"
+                    : "0"
+            );
+
+        iframe.setAttribute(
+            "allow",
+            "autoplay; fullscreen"
+        );
+
+        iframe.setAttribute(
+            "allowfullscreen",
+            ""
+        );
+
+        iframe.setAttribute(
+            "frameborder",
+            "0"
+        );
+
+        tiktokIframe = iframe;
+
+        tiktokPlayer.appendChild(
+            iframe
+        );
+    }
+
+    function loadMedalClip(request, forceReload) {
+        hideFallback();
+
+        if (
+            !request ||
+            !request.ContentId
+        ) {
+            showFallback("player.error.invalidMedal");
+            reportState("error");
+            return;
+        }
+
+        if (
+            !forceReload &&
+            loadedRequestId === request.Id
+        ) {
+            return;
+        }
+
+        if (ytPlayerReady && ytPlayer) {
+            try {
+                ytPlayer.stopVideo();
+            } catch (error) {
+                console.warn(
+                    "Could not stop YouTube before Medal:",
+                    error
+                );
+            }
+        }
+
+        clearNonInteractiveEndTimer();
+        clearTwitchClip();
+        clearMedal();
+        clearTikTok();
+
+        loadedRequestId = request.Id;
+        showMedalPlayer();
+        reportState("loading");
+
+        const iframe =
+            document.createElement("iframe");
+
+        iframe.src =
+            "https://medal.tv/clip/" +
+            encodeURIComponent(
+                request.ContentId
+            ) +
+            "?autoplay=1" +
+            "&loop=0" +
+            "&cta=0";
+
+        iframe.setAttribute(
+            "allow",
+            "autoplay; fullscreen"
+        );
+
+        iframe.setAttribute(
+            "allowfullscreen",
+            ""
+        );
+
+        iframe.setAttribute(
+            "frameborder",
+            "0"
+        );
+
+        iframe.addEventListener(
+            "load",
+            () => {
+                if (
+                    currentRequest &&
+                    currentRequest.Id === request.Id
+                ) {
+                    reportState(
+                        "playing"
+                    );
+
+                    scheduleNonInteractiveEnd(
+                        request
+                    );
+                }
+            }
+        );
+
+        medalPlayer.appendChild(
+            iframe
+        );
+    }
+
+    function loadTwitchClip(request, forceReload) {
+        hideFallback();
+
+        if (
+            !request ||
+            !request.ContentId
+        ) {
+            showFallback("player.error.invalidTwitch");
+            reportState("error");
+            return;
+        }
+
+        if (
+            !forceReload &&
+            loadedRequestId === request.Id
+        ) {
+            return;
+        }
+
+        if (ytPlayerReady && ytPlayer) {
+            try {
+                ytPlayer.stopVideo();
+            } catch (error) {
+                console.warn(
+                    "Could not stop YouTube before Twitch Clip:",
+                    error
+                );
+            }
+        }
+
+        clearNonInteractiveEndTimer();
+        clearMedal();
+        clearTikTok();
+
+        loadedRequestId = request.Id;
+        clearTwitchClip();
+        showTwitchPlayer();
+        reportState("loading");
+
+        const iframe =
+            document.createElement("iframe");
+
+        const parents = [];
+
+        const hostname =
+            String(
+                window.location.hostname ||
+                ""
+            ).trim();
+
+        if (hostname) {
+            parents.push(hostname);
+        }
+
+        // Useful for local OBS/Streamer.bot installs regardless of whether
+        // the browser source was entered as localhost or 127.0.0.1.
+        if (!parents.includes("localhost")) {
+            parents.push("localhost");
+        }
+
+        if (!parents.includes("127.0.0.1")) {
+            parents.push("127.0.0.1");
+        }
+
+        const parentQuery =
+            parents
+                .map(
+                    (parent) =>
+                        "parent=" +
+                        encodeURIComponent(parent)
+                )
+                .join("&");
+
+        iframe.src =
+            "https://clips.twitch.tv/embed" +
+            "?clip=" +
+            encodeURIComponent(
+                request.ContentId
+            ) +
+            "&" +
+            parentQuery +
+            "&autoplay=true" +
+            "&muted=false";
+
+        iframe.setAttribute(
+            "allow",
+            "autoplay; fullscreen"
+        );
+
+        iframe.setAttribute(
+            "allowfullscreen",
+            ""
+        );
+
+        iframe.setAttribute(
+            "frameborder",
+            "0"
+        );
+
+        iframe.addEventListener(
+            "load",
+            () => {
+                if (
+                    currentRequest &&
+                    currentRequest.Id === request.Id
+                ) {
+                    reportState(
+                        "playing"
+                    );
+
+                    scheduleNonInteractiveEnd(
+                        request
+                    );
+                }
+            }
+        );
+
+        twitchClipPlayer.appendChild(
+            iframe
+        );
+    }
+
+    function loadYouTube(request, forceReload) {
+        hideFallback();
+        clearNonInteractiveEndTimer();
+        clearTwitchClip();
+        clearMedal();
+        clearTikTok();
+        showYouTubePlayer();
+        ensureYouTubePlayer();
+
+        if (!ytPlayerReady || !ytPlayer) {
+            return;
+        }
+
+        if (!forceReload && loadedRequestId === request.Id) {
+            return;
+        }
+
+        const startSeconds = parseStartSeconds(request.Url || request.OriginalUrl || "");
+
+        loadedRequestId = request.Id;
+
+        reportState("loading");
+
+        ytPlayer.loadVideoById({
+            videoId: request.ContentId,
+            startSeconds: startSeconds
+        });
+    }
+
+    function loadCurrentMedia(forceReload = false) {
+        if (!currentRequest) {
+            stopMedia();
+            return;
+        }
+
+        const provider = String(currentRequest.Provider || "").toLowerCase();
+
+        if (provider === "youtube") {
+            loadYouTube(currentRequest, forceReload);
+            return;
+        }
+
+        if (provider === "twitch") {
+            loadTwitchClip(
+                currentRequest,
+                forceReload
+            );
+
+            return;
+        }
+
+        if (provider === "medal") {
+            loadMedalClip(
+                currentRequest,
+                forceReload
+            );
+
+            return;
+        }
+
+        if (provider === "tiktok") {
+            loadTikTokVideo(
+                currentRequest,
+                forceReload
+            );
+
+            return;
+        }
+
+        showFallback("player.error.unsupportedMedia");
+        reportState("error");
+    }
+
+    function pauseMedia() {
+        if (!currentRequest) {
+            return;
+        }
+
+        if (
+            currentProvider() === "youtube" &&
+            ytPlayerReady &&
+            ytPlayer
+        ) {
+            ytPlayer.pauseVideo();
+            return;
+        }
+
+        if (currentProvider() === "tiktok") {
+            sendTikTokCommand("pause");
+        }
+    }
+
+    function playMedia() {
+        if (!currentRequest) {
+            return;
+        }
+
+        if (
+            currentProvider() === "youtube" &&
+            ytPlayerReady &&
+            ytPlayer
+        ) {
+            ytPlayer.playVideo();
+            return;
+        }
+
+        if (currentProvider() === "tiktok") {
+            sendTikTokCommand("play");
+        }
+    }
+
+    function stopMedia() {
+        loadedRequestId = "";
+        hideFallback();
+        clearNonInteractiveEndTimer();
+        clearTwitchClip();
+        clearMedal();
+        clearTikTok();
+        showYouTubePlayer();
+
+        if (ytPlayerReady && ytPlayer) {
+            try {
+                ytPlayer.stopVideo();
+            } catch (error) {
+                console.error("Could not stop YouTube player:", error);
+            }
+        }
+
+        reportState("idle");
+    }
+
+    function clampVolume(value) {
+        const number = Number(value);
+
+        if (!Number.isFinite(number)) {
+            return 100;
+        }
+
+        return Math.max(0, Math.min(100, Math.round(number)));
+    }
+
+    function applyVolume(value) {
+        const volume = clampVolume(value);
+
+        if (volume === lastAppliedVolume) {
+            return;
+        }
+
+        lastAppliedVolume = volume;
+
+        if (ytPlayerReady && ytPlayer) {
+            ytPlayer.setVolume(volume);
+        }
+    }
+
+    function applyVideoHiddenState() {
+        const provider =
+            currentProvider();
+
+        const canHideVideo =
+            provider !== "twitch";
+
+        document.documentElement.classList.toggle(
+            "audio-only",
+            videoHidden &&
+            canHideVideo
+        );
+    }
+
+    function applyDesiredMuteState() {
+        if (!currentRequest) {
+            return;
+        }
+
+        const provider =
+            currentProvider();
+
+        if (
+            provider === "youtube" &&
+            ytPlayerReady &&
+            ytPlayer
+        ) {
+            try {
+                if (desiredMuted) {
+                    ytPlayer.mute();
+                } else {
+                    ytPlayer.unMute();
+                }
+            } catch (error) {
+                console.warn(
+                    "Could not apply YouTube mute state:",
+                    error
+                );
+            }
+
+            return;
+        }
+
+        if (provider === "tiktok") {
+            sendTikTokCommand(
+                desiredMuted
+                    ? "mute"
+                    : "unMute"
+            );
+        }
+    }
+
+    function reinforceTikTokMuteState(
+        force = false)
+    {
+        if (
+            !currentRequest ||
+            currentProvider() !== "tiktok"
+        ) {
+            return;
+        }
+
+        const requestId =
+            currentRequest.Id || "";
+
+        if (desiredMuted) {
+            sendTikTokCommand(
+                "mute"
+            );
+
+            return;
+        }
+
+        if (
+            !force &&
+            tiktokActualMuted === false
+        ) {
+            return;
+        }
+
+        if (
+            tiktokUnmuteAttempts >= 8
+        ) {
+            return;
+        }
+
+        tiktokUnmuteAttempts += 1;
+
+        const retryDelay =
+            tiktokUnmuteAttempts <= 2
+                ? 0
+                : Math.min(
+                    1600,
+                    150 * tiktokUnmuteAttempts
+                );
+
+        setTimeout(
+            () => {
+                if (
+                    !currentRequest ||
+                    currentRequest.Id !== requestId ||
+                    currentProvider() !== "tiktok" ||
+                    desiredMuted
+                ) {
+                    return;
+                }
+
+                sendTikTokCommand(
+                    "unMute"
+                );
+            },
+            retryDelay
+        );
+    }
+
+    function togglePlayback() {
+        if (!ytPlayerReady || !ytPlayer || !currentRequest) {
+            return;
+        }
+
+        const state = ytPlayer.getPlayerState();
+
+        if (state === YT.PlayerState.PLAYING) {
+            ytPlayer.pauseVideo();
+        } else {
+            ytPlayer.playVideo();
+        }
+    }
+
+    function seekAbsolute(seconds) {
+        if (!currentRequest) {
+            return;
+        }
+
+        const requested =
+            Number(seconds || 0);
+
+        if (
+            currentProvider() === "youtube" &&
+            ytPlayerReady &&
+            ytPlayer
+        ) {
+            const duration =
+                Number(
+                    ytPlayer.getDuration() || 0
+                );
+
+            const nextTime = Math.max(
+                0,
+                duration > 0
+                    ? Math.min(
+                        duration,
+                        requested
+                    )
+                    : requested
+            );
+
+            ytPlayer.seekTo(
+                nextTime,
+                true
+            );
+
+            setTimeout(
+                reportTelemetry,
+                100
+            );
+
+            return;
+        }
+
+        if (currentProvider() === "tiktok") {
+            const nextTime =
+                Math.max(
+                    0,
+                    tiktokDuration > 0
+                        ? Math.min(
+                            tiktokDuration,
+                            requested
+                        )
+                        : requested
+                );
+
+            sendTikTokCommand(
+                "seekTo",
+                nextTime
+            );
+        }
+    }
+
+    function seekRelative(seconds) {
+        if (!currentRequest) {
+            return;
+        }
+
+        const delta =
+            Number(seconds || 0);
+
+        if (
+            currentProvider() === "youtube" &&
+            ytPlayerReady &&
+            ytPlayer
+        ) {
+            const duration =
+                Number(
+                    ytPlayer.getDuration() || 0
+                );
+
+            const currentTime =
+                Number(
+                    ytPlayer.getCurrentTime() || 0
+                );
+
+            const nextTime = Math.max(
+                0,
+                duration > 0
+                    ? Math.min(
+                        duration,
+                        currentTime + delta
+                    )
+                    : currentTime + delta
+            );
+
+            ytPlayer.seekTo(
+                nextTime,
+                true
+            );
+
+            setTimeout(
+                reportTelemetry,
+                100
+            );
+
+            return;
+        }
+
+        if (currentProvider() === "tiktok") {
+            const nextTime =
+                Math.max(
+                    0,
+                    tiktokDuration > 0
+                        ? Math.min(
+                            tiktokDuration,
+                            tiktokCurrentTime + delta
+                        )
+                        : tiktokCurrentTime + delta
+                );
+
+            sendTikTokCommand(
+                "seekTo",
+                nextTime
+            );
+        }
+    }
+
+    function showControls() {
+        interactionSurface.classList.add("controls-visible");
+
+        if (controlsHideTimer) {
+            clearTimeout(controlsHideTimer);
+        }
+
+        controlsHideTimer = setTimeout(() => {
+            if (!seeking) {
+                interactionSurface.classList.remove("controls-visible");
+            }
+        }, 1600);
+    }
+
+    function updateTimeline() {
+        if (
+            currentProvider() !== "youtube"
+        ) {
+            return;
+        }
+
+        if (!ytPlayerReady || !ytPlayer || !currentRequest || seeking) {
+            return;
+        }
+
+        const duration = Number(ytPlayer.getDuration() || 0);
+        const currentTime = Number(ytPlayer.getCurrentTime() || 0);
+
+        if (duration > 0) {
+            seekSlider.max = String(duration);
+            seekSlider.value = String(Math.max(0, Math.min(duration, currentTime)));
+        } else {
+            seekSlider.max = "100";
+            seekSlider.value = "0";
+        }
+
+        const state = ytPlayer.getPlayerState();
+        overlayPlayButton.textContent =
+            state === YT.PlayerState.PLAYING ? "Ⅱ" : "▶";
+    }
+
+    interactionSurface.addEventListener("mousemove", showControls);
+
+    interactionSurface.addEventListener("click", (event) => {
+        if (event.target === interactionSurface) {
+            togglePlayback();
+            showControls();
+        }
+    });
+
+    overlayPlayButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        togglePlayback();
+        showControls();
+    });
+
+    seekSlider.addEventListener("mousedown", () => {
+        seeking = true;
+        showControls();
+    });
+
+    seekSlider.addEventListener("input", () => {
+        showControls();
+    });
+
+    seekSlider.addEventListener("change", () => {
+        if (ytPlayerReady && ytPlayer && currentRequest) {
+            ytPlayer.seekTo(Number(seekSlider.value || 0), true);
+        }
+
+        seeking = false;
+        showControls();
+    });
+
+    seekSlider.addEventListener("mouseup", () => {
+        seeking = false;
+    });
+
+    interactionSurface.addEventListener("keydown", (event) => {
+        const key = String(event.key || "").toLowerCase();
+
+        if (key === " " || key === "k") {
+            event.preventDefault();
+            togglePlayback();
+        } else if (key === "arrowleft") {
+            event.preventDefault();
+            seekRelative(-5);
+        } else if (key === "arrowright") {
+            event.preventDefault();
+            seekRelative(5);
+        } else if (key === "j") {
+            event.preventDefault();
+            seekRelative(-10);
+        } else if (key === "l") {
+            event.preventDefault();
+            seekRelative(10);
+        }
+
+        showControls();
+    });
+
+    function executeCommand(command) {
+        if (!command || !command.Command) {
+            return;
+        }
+
+        switch (String(command.Command).toLowerCase()) {
+            case "openpreferences":
+                requestPreferencePlayer(command);
+                break;
+            case "closepreferences":
+                closePreferencePlayer();
+                break;
+            case "load":
+                closePreferencePlayer();
+                loadCurrentMedia(true);
+                break;
+            case "pause":
+                pauseMedia();
+                break;
+            case "play":
+                playMedia();
+                break;
+            case "stop":
+                stopMedia();
+                break;
+            case "volume":
+                applyVolume(command.Value);
+                break;
+            case "mute":
+                desiredMuted = true;
+                applyDesiredMuteState();
+                break;
+            case "unmute":
+                desiredMuted = false;
+                applyDesiredMuteState();
+
+                if (
+                    currentProvider() === "tiktok"
+                ) {
+                    tiktokUnmuteAttempts = 0;
+                    reinforceTikTokMuteState(
+                        true
+                    );
+                }
+
+                break;
+            case "hidevideo":
+                videoHidden = true;
+                applyVideoHiddenState();
+                break;
+            case "showvideo":
+                videoHidden = false;
+                applyVideoHiddenState();
+                break;
+            case "seek":
+                seekAbsolute(command.Value);
+                break;
+            case "seekrelative":
+                seekRelative(command.Value);
+                break;
+        }
+    }
+
+    async function syncFromStreamerBot() {
+        if (!streamerBotConnected || syncing) {
+            return;
+        }
+
+        syncing = true;
+
+        try {
+            const responses = await Promise.all([
+                client.getGlobal(CURRENT_GLOBAL, true),
+                client.getGlobal(VOLUME_GLOBAL, true),
+                client.getGlobal(MUTED_GLOBAL, true),
+                client.getGlobal(VIDEO_HIDDEN_GLOBAL, true)
+            ]);
+
+            const nextCurrent = parseJson(getGlobalValue(responses[0]), null);
+            const volume = getGlobalValue(responses[1]);
+            const nextDesiredMuted =
+                parseBool(
+                    getGlobalValue(responses[2])
+                );
+
+            const nextVideoHidden =
+                parseBool(
+                    getGlobalValue(responses[3])
+                );
+
+            desiredMuted =
+                nextDesiredMuted;
+
+            videoHidden =
+                nextVideoHidden;
+
+            applyVolume(volume);
+            applyVideoHiddenState();
+
+            const oldId = currentRequest ? currentRequest.Id : "";
+            const newId = nextCurrent ? nextCurrent.Id : "";
+
+            currentRequest = nextCurrent;
+            applyVideoHiddenState();
+
+            if (currentRequest) {
+                closePreferencePlayer();
+            }
+
+            if (oldId !== newId) {
+                if (currentRequest) {
+                    loadCurrentMedia(true);
+                } else {
+                    stopMedia();
+                }
+            } else {
+                applyDesiredMuteState();
+            }
+
+            if (
+                !currentRequest &&
+                pendingPreferenceCommand
+            ) {
+                const preferenceCommand =
+                    pendingPreferenceCommand;
+
+                pendingPreferenceCommand = null;
+
+                openPreferencePlayer(
+                    preferenceCommand
+                );
+            }
+        } catch (error) {
+            // A request error is not the same thing as the WebSocket being
+            // disconnected. onDisconnect is the source of truth for that.
+            console.error("React Player sync failed:", error);
+        } finally {
+            syncing = false;
+        }
+    }
+
+    async function syncPlayerCommand() {
+        if (!streamerBotConnected || commandSyncing) {
+            return;
+        }
+
+        commandSyncing = true;
+
+        try {
+            const response =
+                await client.getGlobal(
+                    COMMAND_GLOBAL,
+                    false
+                );
+
+            const command =
+                parseJson(
+                    getGlobalValue(response),
+                    null
+                );
+
+            if (command && command.Nonce) {
+                if (!commandInitialized) {
+                    lastCommandNonce = command.Nonce;
+                    commandInitialized = true;
+
+                    if (
+                        String(
+                            command.Command ||
+                            ""
+                        ).toLowerCase() ===
+                        "openpreferences"
+                    ) {
+                        executeCommand(command);
+                    }
+                } else if (command.Nonce !== lastCommandNonce) {
+                    lastCommandNonce = command.Nonce;
+                    executeCommand(command);
+                }
+            } else if (!commandInitialized) {
+                commandInitialized = true;
+            }
+        } catch (error) {
+            console.error(
+                "React Player command sync failed:",
+                error
+            );
+        } finally {
+            commandSyncing = false;
+        }
+    }
+
+    window.addEventListener(
+        "message",
+        (event) => {
+            const message =
+                event &&
+                event.data;
+
+            if (
+                !message ||
+                message["x-tiktok-player"] !== true ||
+                currentProvider() !== "tiktok"
+            ) {
+                return;
+            }
+
+            switch (message.type) {
+                case "onPlayerReady":
+                    reportState("loading");
+                    tiktokUnmuteAttempts = 0;
+                    reinforceTikTokMuteState(
+                        true
+                    );
+                    break;
+
+                case "onStateChange":
+                    tiktokPlayerState =
+                        Number(
+                            message.value
+                        );
+
+                    if (tiktokPlayerState === 0) {
+                        reportState("ended");
+                    } else if (tiktokPlayerState === 1) {
+                        reportState("playing");
+
+                        if (
+                            !desiredMuted &&
+                            tiktokActualMuted !== false
+                        ) {
+                            reinforceTikTokMuteState(
+                                true
+                            );
+                        }
+                    } else if (tiktokPlayerState === 2) {
+                        reportState("paused");
+                    } else if (tiktokPlayerState === 3) {
+                        reportState("loading");
+                    }
+
+                    break;
+
+                case "onMute":
+                    tiktokActualMuted =
+                        Boolean(
+                            message.value
+                        );
+
+                    if (
+                        !desiredMuted &&
+                        tiktokActualMuted
+                    ) {
+                        reinforceTikTokMuteState(
+                            true
+                        );
+                    }
+
+                    break;
+
+                case "onCurrentTime":
+                    if (
+                        message.value &&
+                        typeof message.value === "object"
+                    ) {
+                        tiktokCurrentTime =
+                            Math.max(
+                                0,
+                                Number(
+                                    message.value.currentTime || 0
+                                )
+                            );
+
+                        tiktokDuration =
+                            Math.max(
+                                0,
+                                Number(
+                                    message.value.duration || 0
+                                )
+                            );
+
+                        reportExternalTelemetry(
+                            tiktokCurrentTime,
+                            tiktokDuration,
+                            0
+                        );
+                    }
+
+                    break;
+
+                case "onPlayerError":
+                    console.error(
+                        "TikTok player error:",
+                        message.value
+                    );
+
+                    reportState("error");
+                    break;
+            }
+        }
+    );
+
+    window.onYouTubeIframeAPIReady = function () {
+        ytApiReady = true;
+        ensureYouTubePlayer();
+    };
+
+    const youtubeApiScript = document.createElement("script");
+    youtubeApiScript.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(youtubeApiScript);
+
+    setInterval(syncPlayerCommand, 125);
+    setInterval(syncFromStreamerBot, 500);
+    setInterval(updateTimeline, 250);
+    setInterval(reportTelemetry, 500);
+</script>
+</body>
+</html>

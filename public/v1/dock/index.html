@@ -1,0 +1,4996 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Player</title>
+
+    <script src="/v1/shared/i18n.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@streamerbot/client/dist/streamerbot-client.js"></script>
+    <script src="/v1/shared/streamerbot-actions.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 10px;
+            background: #18181b;
+            color: #efeff1;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 5px;
+            padding: 6px 9px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #3a3a40;
+            color: white;
+        }
+
+        button:hover:not(:disabled) {
+            background: #4a4a52;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .title-wrap {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .creator-credit {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #72727a;
+            font-size: 12px;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+
+        .creator-credit-separator {
+            color: #56565d;
+            user-select: none;
+        }
+
+        .creator-credit a {
+            color: #85858e;
+            text-decoration: none;
+            transition: color 120ms ease;
+        }
+
+        .creator-credit a:hover,
+        .creator-credit a:focus-visible {
+            color: #b5b5be;
+        }
+
+        .creator-credit .creator-name {
+            font-weight: 600;
+        }
+
+        .creator-github {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            margin-left: 1px;
+        }
+
+        .creator-github svg {
+            display: block;
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .status {
+            font-size: 12px;
+            color: #adadb8;
+        }
+
+        .status.connected {
+            color: #7bd88f;
+        }
+
+        .status.disconnected {
+            color: #ff7b7b;
+        }
+
+        .header-tools {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-left: auto;
+        }
+
+        .language-selector {
+            border: 1px solid #3c3c43;
+            border-radius: 5px;
+            padding: 4px 6px;
+            background: #242428;
+            color: #c8c8cf;
+            font: inherit;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .language-selector:focus-visible {
+            border-color: #9147ff;
+            outline: 1px solid #9147ff;
+        }
+
+        .obs-setup-toggle {
+            width: 27px;
+            height: 26px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #29292e;
+            color: #c8c8cf;
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .obs-setup-toggle.open {
+            background: #4f2683;
+            color: #ffffff;
+        }
+
+        .obs-setup-panel {
+            border: 1px solid #45454d;
+            border-radius: 7px;
+            padding: 9px;
+            margin-bottom: 8px;
+            background: #242428;
+            color: #d9d9df;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .obs-setup-panel[hidden] {
+            display: none;
+        }
+
+        .obs-setup-panel[data-status="not_found"],
+        .obs-setup-panel[data-status="not_placed"],
+        .obs-setup-panel[data-status="ambiguous"] {
+            border-color: #6e5526;
+            background: #30291d;
+        }
+
+        .obs-setup-panel[data-status="error"] {
+            border-color: #743b3b;
+            background: #302020;
+        }
+
+        .obs-setup-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .obs-setup-title {
+            color: #efeff1;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .obs-setup-close {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: #adadb8;
+            font-size: 17px;
+            line-height: 1;
+        }
+
+        .obs-setup-close:hover:not(:disabled) {
+            background: #3a3a40;
+            color: #ffffff;
+        }
+
+        .obs-setup-status {
+            color: #c8c8cf;
+        }
+
+        .obs-setup-details {
+            display: grid;
+            gap: 4px;
+            margin-top: 7px;
+        }
+
+        .obs-setup-detail {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 8px;
+        }
+
+        .obs-setup-detail[hidden] {
+            display: none;
+        }
+
+        .obs-setup-detail-label {
+            color: #85858e;
+            font-weight: bold;
+        }
+
+        .obs-setup-detail-value {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .obs-setup-required-url {
+            margin-top: 7px;
+            color: #adadb8;
+        }
+
+        .obs-setup-required-url[hidden] {
+            display: none;
+        }
+
+        .obs-setup-required-url code {
+            display: block;
+            margin-top: 2px;
+            color: #d8c3ff;
+            overflow-wrap: anywhere;
+        }
+
+        .obs-setup-candidate-area {
+            margin-top: 8px;
+        }
+
+        .obs-setup-candidate-area[hidden] {
+            display: none;
+        }
+
+        .obs-setup-candidate-area label {
+            display: block;
+            margin-bottom: 4px;
+            color: #adadb8;
+            font-weight: bold;
+        }
+
+        .obs-setup-select {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid #4b4b54;
+            border-radius: 5px;
+            padding: 6px 7px;
+            background: #18181b;
+            color: #efeff1;
+            font: inherit;
+        }
+
+        .obs-setup-select:focus-visible {
+            border-color: #9147ff;
+            outline: 1px solid #9147ff;
+        }
+
+        .obs-setup-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .obs-setup-actions button[hidden] {
+            display: none;
+        }
+
+        .settings-section+.settings-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #3b3b42;
+        }
+
+        .settings-section-title {
+            margin-bottom: 5px;
+            color: #efeff1;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .playback-preferences-description {
+            margin: 0 0 9px;
+            color: #c8c8cf;
+        }
+
+        .playback-preferences-fields {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+            gap: 8px;
+        }
+
+        .playback-preferences-field label {
+            display: block;
+            margin-bottom: 4px;
+            color: #adadb8;
+            font-weight: bold;
+        }
+
+        .playback-preferences-instructions,
+        .playback-preferences-message {
+            margin-top: 8px;
+            color: #c8c8cf;
+        }
+
+        .playback-preferences-message {
+            color: #ffd37a;
+        }
+
+        .playback-preferences-message[hidden] {
+            display: none;
+        }
+
+        .playback-preferences-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 9px;
+        }
+
+        .connection-diagnostics {
+            border: 1px solid #6e5526;
+            border-radius: 7px;
+            padding: 9px;
+            margin-bottom: 8px;
+            background: #30291d;
+            color: #e7dfce;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .connection-diagnostics[hidden] {
+            display: none;
+        }
+
+        .diagnostics-title {
+            margin-bottom: 3px;
+            color: #ffd37a;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .connection-diagnostics p {
+            margin: 0;
+        }
+
+        .diagnostics-checklist {
+            margin: 6px 0 0;
+            padding-left: 19px;
+        }
+
+        .diagnostics-checklist li+li {
+            margin-top: 3px;
+        }
+
+        .diagnostics-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .panel {
+            background: #242428;
+            border: 1px solid #34343a;
+            border-radius: 7px;
+            padding: 9px;
+            margin-bottom: 8px;
+        }
+
+        .section-label {
+            color: #adadb8;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .current-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .current-user {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .current-url,
+        .request-url {
+            color: #adadb8;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .state-badge,
+        .count-badge,
+        .playing-badge {
+            display: inline-block;
+            background: #2f2f35;
+            border-radius: 999px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .state-badge.playing,
+        .playing-badge {
+            background: #2e8b57;
+        }
+
+        .state-badge.paused {
+            background: #8a6d1d;
+        }
+
+        .state-badge.error {
+            background: #813737;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .icon-control {
+            width: 32px;
+            min-width: 32px;
+            padding-left: 0;
+            padding-right: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .stream-toggle.visible {
+            background: #2e8b57;
+        }
+
+        .stream-toggle.hidden {
+            background: #662b2b;
+        }
+
+        .audio-only-toggle.active {
+            background: #2e8b57;
+        }
+
+        .audio-only-toggle.active:hover:not(:disabled) {
+            background: #36a266;
+        }
+
+        .projector-toggle.open {
+            background: #2e8b57;
+        }
+
+        .projector-toggle.open:hover:not(:disabled) {
+            background: #36a266;
+        }
+
+        .primary {
+            background: #9147ff;
+        }
+
+        .primary:hover:not(:disabled) {
+            background: #a970ff;
+        }
+
+        .done {
+            background: #2e8b57;
+        }
+
+        .danger {
+            background: #662b2b;
+        }
+
+        .skip {
+            background: #65531f;
+        }
+
+        .skip:hover:not(:disabled) {
+            background: #786426;
+        }
+
+        .copy-success {
+            background: #2e8b57 !important;
+        }
+
+        .copy-error {
+            background: #813737 !important;
+        }
+
+        .playback-transport {
+            display: grid;
+            grid-template-columns: auto auto auto minmax(100px, 1fr) auto auto;
+            align-items: center;
+            gap: 7px;
+            margin-top: 8px;
+        }
+
+        .transport-button {
+            padding: 5px 8px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .transport-play-button {
+            width: 29px;
+            height: 27px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            line-height: 1;
+            background: #303036;
+        }
+
+        .transport-play-button:hover:not(:disabled) {
+            background: #414149;
+        }
+
+        .time-label {
+            min-width: 42px;
+            color: #adadb8;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .time-label.current {
+            text-align: right;
+        }
+
+        .time-label.duration {
+            text-align: left;
+        }
+
+        .seek-shell {
+            position: relative;
+            height: 18px;
+            min-width: 0;
+        }
+
+        .seek-track {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 7px;
+            height: 4px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #3a3a40;
+            pointer-events: none;
+        }
+
+        .seek-buffered,
+        .seek-played {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            pointer-events: none;
+        }
+
+        .seek-buffered {
+            background: #65656f;
+        }
+
+        .seek-played {
+            background: #9147ff;
+        }
+
+        #dockSeekSlider {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 18px;
+            margin: 0;
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #dockSeekSlider:disabled {
+            cursor: default;
+        }
+
+        #dockSeekSlider::-webkit-slider-runnable-track {
+            height: 4px;
+            background: transparent;
+        }
+
+        #dockSeekSlider::-webkit-slider-thumb {
+            width: 12px;
+            height: 12px;
+            margin-top: -4px;
+            appearance: none;
+            -webkit-appearance: none;
+            border: 0;
+            border-radius: 50%;
+            background: #9147ff;
+            cursor: pointer;
+        }
+
+        #dockSeekSlider:disabled::-webkit-slider-thumb {
+            opacity: 0;
+        }
+
+        #dockSeekSlider::-moz-range-track {
+            height: 4px;
+            background: transparent;
+        }
+
+        #dockSeekSlider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border: 0;
+            border-radius: 50%;
+            background: #9147ff;
+            cursor: pointer;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .volume-mute-button {
+            flex: 0 0 29px;
+            width: 29px;
+            height: 26px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #303036;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .volume-mute-button:hover:not(:disabled) {
+            background: #414149;
+        }
+
+        .volume-control input[type="range"] {
+            flex: 1 1 auto;
+            min-width: 0;
+            cursor: pointer;
+            accent-color: #9147ff;
+        }
+
+        .volume-value {
+            flex: 0 0 42px;
+            color: #adadb8;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        .manual-add-panel {
+            background: #242428;
+            border: 1px solid #34343a;
+            border-radius: 7px;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+
+        .manual-add-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 6px;
+        }
+
+        .manual-add-input {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid #3c3c43;
+            border-radius: 5px;
+            padding: 7px 9px;
+            background: #18181b;
+            color: #efeff1;
+            font: inherit;
+            outline: none;
+        }
+
+        .manual-add-input::placeholder {
+            color: #73737c;
+        }
+
+        .manual-add-input:focus {
+            border-color: #6f42b8;
+            box-shadow: 0 0 0 1px #6f42b8;
+        }
+
+        .manual-add-status {
+            margin-top: 5px;
+            color: #85858e;
+            font-size: 11px;
+        }
+
+        .manual-add-status:empty {
+            display: none;
+        }
+
+        .manual-add-status.success {
+            color: #7bd88f;
+        }
+
+        .manual-add-status.error {
+            color: #ff8f8f;
+        }
+
+        .tabs-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .queue-options {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #85858e;
+            font-size: 10px;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .autoplay-switch {
+            position: relative;
+            width: 34px;
+            height: 19px;
+            padding: 0;
+            border-radius: 999px;
+            background: #3a3a40;
+            flex: 0 0 auto;
+            transition: background 120ms ease;
+        }
+
+        .autoplay-switch:hover:not(:disabled) {
+            background: #4a4a52;
+        }
+
+        .autoplay-switch::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #c7c7cc;
+            transition:
+                transform 120ms ease,
+                background 120ms ease;
+        }
+
+        .autoplay-switch.enabled {
+            background: #2e8b57;
+        }
+
+        .autoplay-switch.enabled:hover:not(:disabled) {
+            background: #36a266;
+        }
+
+        .autoplay-switch.enabled::after {
+            transform: translateX(15px);
+            background: #ffffff;
+        }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .tab.active {
+            background: #9147ff;
+        }
+
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .request {
+            background: #242428;
+            border: 1px solid #34343a;
+            border-radius: 7px;
+            padding: 8px;
+        }
+
+        .request-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 7px;
+            margin-bottom: 5px;
+        }
+
+        .request-user {
+            font-weight: bold;
+        }
+
+        .request-header-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+
+        .reorder-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .reorder-button {
+            width: 25px;
+            height: 24px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            color: #b8b8c0;
+            background: #303036;
+            font-size: 13px;
+            line-height: 1;
+        }
+
+        .reorder-button:hover:not(:disabled) {
+            background: #3a3a42;
+            color: #ffffff;
+        }
+
+        .reorder-button:disabled {
+            opacity: 0.28;
+            cursor: default;
+        }
+
+        .request-media {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .request-thumbnail {
+            width: 104px;
+            aspect-ratio: 16 / 9;
+            flex: 0 0 104px;
+            object-fit: cover;
+            border-radius: 5px;
+            background: #111;
+        }
+
+        .request-content {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .request-title {
+            font-weight: bold;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .request-title.collapsed {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+        }
+
+        .request-title-toggle {
+            display: inline-block;
+            margin-top: 3px;
+            padding: 0;
+            background: transparent;
+            color: #9b8cff;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .request-title-toggle:hover:not(:disabled) {
+            background: transparent;
+            color: #b9adff;
+            text-decoration: underline;
+        }
+
+        .request-author {
+            color: #c9c9d0;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .request-creator {
+            color: #85858e;
+        }
+
+        .request-meta-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 5px;
+        }
+
+        .request-meta {
+            color: #adadb8;
+            font-size: 11px;
+        }
+
+        .duration-badge {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.35;
+            white-space: nowrap;
+        }
+
+        .duration-short {
+            background: #244c33;
+            color: #91dda6;
+        }
+
+        .duration-medium {
+            background: #55471f;
+            color: #f0d06f;
+        }
+
+        .duration-long {
+            background: #59391f;
+            color: #f0ad6a;
+        }
+
+        .duration-very-long {
+            background: #592929;
+            color: #ff9292;
+        }
+
+        .request-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 9px;
+        }
+
+        .request-actions button {
+            padding: 6px 8px;
+        }
+
+        .empty {
+            color: #adadb8;
+            text-align: center;
+            padding: 30px 10px;
+        }
+
+        .clear {
+            width: 100%;
+            margin-top: 12px;
+            background: #662b2b;
+        }
+
+        .utility-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .utility-button {
+            padding: 5px 9px;
+            background: #29292e;
+            color: #8f8f98;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .utility-button:hover:not(:disabled) {
+            background: #35353b;
+            color: #c8c8cf;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="title-wrap">
+            <div class="title">React Player</div>
+
+            <div class="creator-credit">
+                <span class="creator-credit-separator">-</span>
+                <span data-i18n="creator.madeWithBy">Made with ♥ by</span>
+
+                <a class="creator-name" href="https://www.twitch.tv/melkepakken" target="_blank"
+                    rel="noopener noreferrer" data-i18n-title="creator.twitchTitle"
+                    title="Melkepakken on Twitch">Melkepakken</a>
+
+                <a class="creator-github" href="https://github.com/Melkepakken" target="_blank"
+                    rel="noopener noreferrer" data-i18n-aria-label="creator.githubLabel"
+                    data-i18n-title="creator.githubLabel" aria-label="Melkepakken on GitHub"
+                    title="Melkepakken on GitHub">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                            d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.74-1.55-2.57-.29-5.27-1.29-5.27-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.17 1.18A11 11 0 0 1 12 6.1c.98 0 1.96.13 2.88.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.08.79 2.18v3.22c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="header-tools">
+            <div class="status disconnected" id="connectionStatus" role="status" aria-live="polite" aria-atomic="true"
+                data-i18n="connection.connecting">Connecting to Streamer.bot...</div>
+
+            <select id="languageSelector" class="language-selector" data-i18n-aria-label="language.selectorLabel"
+                aria-label="Language">
+                <option value="en">English</option>
+                <option value="no">Norsk</option>
+            </select>
+
+            <button id="obsSetupToggleButton" class="obs-setup-toggle" type="button" aria-expanded="false"
+                aria-controls="obsSetupPanel" data-i18n-aria-label="settings.open" data-i18n-title="settings.open"
+                aria-label="Open settings" title="Open settings">&#9881;</button>
+        </div>
+    </div>
+
+    <div id="obsSetupPanel" class="obs-setup-panel" data-status="unknown" role="region" aria-labelledby="settingsTitle"
+        hidden>
+        <div class="obs-setup-heading">
+            <div id="settingsTitle" class="obs-setup-title" data-i18n="settings.title">Settings</div>
+
+            <button id="obsSetupCloseButton" class="obs-setup-close" type="button" data-i18n-aria-label="settings.close"
+                data-i18n-title="settings.close" aria-label="Close settings" title="Close settings">&times;</button>
+        </div>
+
+        <section class="settings-section" aria-labelledby="obsSetupTitle">
+            <div id="obsSetupTitle" class="settings-section-title" data-i18n="obsSetup.title">OBS setup</div>
+
+            <div id="obsSetupStatus" class="obs-setup-status" role="status" aria-live="polite" aria-atomic="true">React
+                Player has not checked the OBS setup yet.</div>
+
+            <div id="obsSetupDetails" class="obs-setup-details" hidden>
+                <div id="obsSetupSourceDetail" class="obs-setup-detail" hidden>
+                    <span class="obs-setup-detail-label" data-i18n="obsSetup.source">Source</span>
+                    <span id="obsSetupSourceValue" class="obs-setup-detail-value"></span>
+                </div>
+
+                <div id="obsSetupContainerDetail" class="obs-setup-detail" hidden>
+                    <span id="obsSetupContainerLabel" class="obs-setup-detail-label">Scene</span>
+                    <span id="obsSetupContainerValue" class="obs-setup-detail-value"></span>
+                </div>
+            </div>
+
+            <div id="obsSetupRequiredUrl" class="obs-setup-required-url" hidden>
+                <span data-i18n="obsSetup.requiredUrl">Required player URL</span>
+                <code>https://react.melkepakken.tv/v1/player/</code>
+            </div>
+
+            <div id="obsSetupCandidateArea" class="obs-setup-candidate-area" hidden>
+                <label for="obsSetupCandidateSelect" data-i18n="obsSetup.selectTarget">Choose an OBS target</label>
+                <select id="obsSetupCandidateSelect" class="obs-setup-select"></select>
+            </div>
+
+            <div class="obs-setup-actions">
+                <button id="obsSetupDetectButton" class="primary" type="button" data-i18n="obsSetup.detectAgain">Detect
+                    again</button>
+
+                <button id="obsSetupUseSelectedButton" type="button" data-i18n="obsSetup.useSelected" hidden>Use
+                    selected</button>
+            </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="playbackPreferencesTitle">
+            <div id="playbackPreferencesTitle" class="settings-section-title" data-i18n="playbackPreferences.title">
+                Playback preferences</div>
+
+            <p class="playback-preferences-description" data-i18n="playbackPreferences.description">These settings are
+                optional. Choose how each video service should handle captions, quality, volume and other player
+                settings. Leave everything unchanged if it already works the way you want.</p>
+
+            <div class="playback-preferences-fields">
+                <div class="playback-preferences-field">
+                    <label for="playbackPreferencesProviderSelect" data-i18n="playbackPreferences.provider">Video
+                        service</label>
+                    <select id="playbackPreferencesProviderSelect" class="obs-setup-select">
+                        <option value="youtube">YouTube</option>
+                        <option value="twitch">Twitch Clips</option>
+                        <option value="medal">Medal</option>
+                        <option value="tiktok">TikTok</option>
+                    </select>
+                </div>
+
+                <div class="playback-preferences-field">
+                    <label for="playbackPreferencesRequestSelect" data-i18n="playbackPreferences.media">Media</label>
+                    <select id="playbackPreferencesRequestSelect" class="obs-setup-select"></select>
+                </div>
+            </div>
+
+            <div id="playbackPreferencesInstructions" class="playback-preferences-instructions"></div>
+
+            <div id="playbackPreferencesNoMedia" class="playback-preferences-message" role="status"
+                data-i18n="playbackPreferences.noMedia" hidden>Add a link from this service to the queue first.</div>
+
+            <div id="playbackPreferencesCurrentSafety" class="playback-preferences-message" role="status"
+                data-i18n="playbackPreferences.stopCurrent" hidden>Stop the current video before opening playback
+                preferences.</div>
+
+            <div class="playback-preferences-actions">
+                <button id="playbackPreferencesOpenButton" class="primary" type="button"
+                    data-i18n="playbackPreferences.openPlayer">Open test player</button>
+
+                <button id="playbackPreferencesInteractButton" type="button"
+                    data-i18n="playbackPreferences.openControls">Open player controls</button>
+
+                <button id="playbackPreferencesCloseButton" type="button"
+                    data-i18n="playbackPreferences.closePlayer">Close test player</button>
+            </div>
+        </section>
+    </div>
+
+    <div id="connectionDiagnostics" class="connection-diagnostics" role="region" aria-labelledby="diagnosticsTitle"
+        hidden>
+        <div id="diagnosticsTitle" class="diagnostics-title" data-i18n="diagnostics.title">Cannot connect to
+            Streamer.bot</div>
+
+        <p data-i18n="diagnostics.intro">React Player could not connect to Streamer.bot on this computer. Check the
+            following:</p>
+
+        <ul class="diagnostics-checklist">
+            <li data-i18n="diagnostics.running">Streamer.bot is running.</li>
+            <li data-i18n="diagnostics.websocketEnabled">Servers/Clients &gt; WebSocket Server is enabled.</li>
+            <li data-i18n="diagnostics.defaults">Use the default address 127.0.0.1, port 8080, and endpoint /.</li>
+            <li data-i18n="diagnostics.localNetwork">Allow Local Network Access for react.melkepakken.tv in Chrome or
+                Edge.</li>
+            <li data-i18n="diagnostics.blockers">Disable uBlock Origin or other content blockers for
+                react.melkepakken.tv if they block the local WebSocket.</li>
+            <li data-i18n="diagnostics.obs">Open the dock inside OBS, which is the primary supported runtime.</li>
+        </ul>
+
+        <div class="diagnostics-actions">
+            <button id="diagnosticsRetryButton" class="primary" type="button"
+                data-i18n="diagnostics.retry">Retry</button>
+
+            <button id="diagnosticsDismissButton" type="button" data-i18n="diagnostics.dismiss">Hide</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="section-label" data-i18n="current.nowPlaying">Now playing</div>
+
+        <div class="current-top">
+            <div>
+                <div class="current-user" id="currentUser" data-i18n="current.nothingLoaded">Nothing loaded</div>
+                <div class="current-url" id="currentUrl"></div>
+            </div>
+            <div class="state-badge" id="playerState" data-i18n="state.empty">Empty</div>
+        </div>
+
+        <div class="playback-transport">
+            <button id="back10Button" class="transport-button" data-i18n-aria-label="playback.backTenLabel"
+                aria-label="Go back 10 seconds" data-i18n="playback.backTen">-10s</button>
+            <div id="currentTimeLabel" class="time-label current">0:00</div>
+
+            <button id="pauseButton" class="transport-play-button" type="button"
+                data-i18n-aria-label="playback.playPause" data-i18n-title="playback.playPause"
+                aria-label="Play or pause" title="Play or pause">▶</button>
+
+            <div class="seek-shell">
+                <div class="seek-track">
+                    <div id="bufferedFill" class="seek-buffered"></div>
+                    <div id="playedFill" class="seek-played"></div>
+                </div>
+
+                <input id="dockSeekSlider" type="range" min="0" max="100" value="0" step="1"
+                    data-i18n-aria-label="playback.videoPosition" aria-label="Video position">
+            </div>
+
+            <div id="durationLabel" class="time-label duration">--:--</div>
+            <button id="forward10Button" class="transport-button" data-i18n-aria-label="playback.forwardTenLabel"
+                aria-label="Go forward 10 seconds" data-i18n="playback.forwardTen">+10s</button>
+        </div>
+
+        <div class="controls">
+            <button id="visibilityButton" class="stream-toggle hidden" data-i18n="controls.showOnStream">Show on
+                stream</button>
+            <button id="audioOnlyButton" class="audio-only-toggle" data-i18n="controls.audioOnly">Audio only</button>
+
+            <button id="projectorButton" class="projector-toggle icon-control" type="button"
+                data-i18n-aria-label="controls.fullscreen" data-i18n-title="controls.fullscreen" aria-label="Fullscreen"
+                title="Fullscreen">⛶</button>
+
+            <button id="browserButton" class="icon-control" type="button" data-i18n-aria-label="controls.openUrl"
+                data-i18n-title="controls.openUrl" aria-label="Open URL" title="Open URL">↗</button>
+
+            <button id="copyUrlButton" class="icon-control" type="button" data-i18n-aria-label="controls.copyUrl"
+                data-i18n-title="controls.copyUrl" aria-label="Copy URL" title="Copy URL">⧉</button>
+
+            <button id="skipButton" class="skip" data-i18n="controls.skip">Skip</button>
+            <button id="stopButton" class="danger" data-i18n="controls.stop">Stop</button>
+        </div>
+
+        <div class="volume-control">
+            <button id="muteButton" class="volume-mute-button" type="button" data-i18n-aria-label="controls.mute"
+                data-i18n-title="controls.mute" aria-label="Mute" title="Mute">🔊</button>
+            <input id="volumeSlider" type="range" min="0" max="100" value="100" step="1"
+                data-i18n-aria-label="playback.volume" aria-label="Volume">
+            <div class="volume-value" id="volumeValue">100%</div>
+        </div>
+    </div>
+
+    <div class="manual-add-panel">
+        <div class="manual-add-row">
+            <input id="manualUrlInput" class="manual-add-input" type="text" inputmode="url" autocomplete="off"
+                spellcheck="false" data-i18n-aria-label="manual.inputLabel" aria-label="Media link"
+                data-i18n-placeholder="manual.placeholder"
+                placeholder="Paste a YouTube, Twitch Clip, Medal, or TikTok link...">
+
+            <button id="manualAddButton" class="primary" type="button" data-i18n="manual.add">Add</button>
+        </div>
+
+        <div id="manualAddStatus" class="manual-add-status"></div>
+    </div>
+
+    <div class="tabs-toolbar">
+        <div class="tabs">
+            <button class="tab active" id="queueTab"><span data-i18n="tabs.queue">Queue</span> <span
+                    id="queueCount">0</span></button>
+            <button class="tab" id="historyTab"><span data-i18n="tabs.history">History</span> <span
+                    id="historyCount">0</span></button>
+        </div>
+
+        <div class="queue-options">
+            <span data-i18n="autoplay.label">Autoplay</span>
+
+            <button id="autoPlayToggle" class="autoplay-switch" type="button" role="switch" aria-checked="false"
+                data-i18n-aria-label="autoplay.ariaLabel" data-i18n-title="autoplay.initialTitle"
+                aria-label="Autoplay next request"
+                title="Automatically play the next request when the current item ends"></button>
+        </div>
+    </div>
+
+    <div class="list" id="requestList"></div>
+    <button class="clear" id="clearButton" data-i18n="queue.clear">Clear queue</button>
+
+    <div class="utility-row">
+        <button id="refreshButton" class="utility-button" type="button" data-i18n="controls.refreshPlayer"
+            data-i18n-title="controls.refreshTitle" title="Reload the React Player source">Refresh player</button>
+    </div>
+
+    <script>
+        const reactActions =
+            window.ReactPlayerActions;
+
+        const GLOBAL_QUEUE = "ReactQueue";
+        const GLOBAL_CURRENT = "ReactCurrent";
+        const GLOBAL_HISTORY = "ReactHistory";
+        const GLOBAL_PLAYER_STATE = "ReactPlayerState";
+        const GLOBAL_VISIBLE = "ReactPlayerVisible";
+        const GLOBAL_VOLUME = "ReactPlayerVolume";
+        const GLOBAL_MUTED = "ReactPlayerMuted";
+        const GLOBAL_VIDEO_HIDDEN = "ReactPlayerVideoHidden";
+        const GLOBAL_TELEMETRY = "ReactPlayerTelemetry";
+        const GLOBAL_PROJECTOR_OPEN = "ReactPlayerProjectorOpen";
+        const GLOBAL_AUTOPLAY = "ReactAutoPlay";
+        const GLOBAL_OBS_DETECTION_STATUS = "ReactObsDetectionStatus";
+        const GLOBAL_OBS_SOURCE = "ReactObsSource";
+        const GLOBAL_OBS_CONTAINER = "ReactObsContainer";
+        const GLOBAL_OBS_CONTAINER_TYPE = "ReactObsContainerType";
+        const GLOBAL_OBS_SCENE_ITEM_ID = "ReactObsSceneItemId";
+        const GLOBAL_OBS_SOURCE_URL = "ReactObsSourceUrl";
+        const GLOBAL_OBS_CANDIDATES = "ReactObsCandidates";
+        const GLOBAL_PLAYBACK_PREFERENCES_ACTIVE =
+            "ReactPlaybackPreferencesActive";
+        const GLOBAL_PLAYBACK_PREFERENCES_PROVIDER =
+            "ReactPlaybackPreferencesProvider";
+        const GLOBAL_PLAYBACK_PREFERENCES_REQUEST_ID =
+            "ReactPlaybackPreferencesRequestId";
+
+        const PLAYBACK_PREFERENCE_PROVIDERS = Object.freeze([
+            {
+                value: "youtube",
+                instructionsKey:
+                    "playbackPreferences.instructions.youtube"
+            },
+            {
+                value: "twitch",
+                instructionsKey:
+                    "playbackPreferences.instructions.twitch"
+            },
+            {
+                value: "medal",
+                instructionsKey:
+                    "playbackPreferences.instructions.medal"
+            },
+            {
+                value: "tiktok",
+                instructionsKey:
+                    "playbackPreferences.instructions.tiktok"
+            }
+        ]);
+
+        const OBS_DETECTION_STATUSES = new Set([
+            "unknown",
+            "detecting",
+            "ready",
+            "not_found",
+            "not_placed",
+            "ambiguous",
+            "error"
+        ]);
+
+        const MANUAL_ERROR_CODE_KEYS = Object.freeze({
+            missing_link: "manual.pasteSupported",
+            only_link: "manual.onlyLink",
+            invalid_link: "manual.invalidLink",
+            tiktok_short_open_failed: "manual.tiktokShortOpenFailed",
+            tiktok_short_resolve_failed: "manual.tiktokShortResolveFailed",
+            tiktok_short_unsupported: "manual.tiktokShortUnsupported"
+        });
+
+        const LEGACY_MANUAL_ERROR_KEYS = Object.freeze({
+            "Lim inn en YouTube-, Twitch Clip-, Medal- eller TikTok-lenke.": "manual.pasteSupported",
+            "Send kun inn selve lenken.": "manual.onlyLink",
+            "Du må sende inn en gyldig YouTube-, Twitch Clip-, Medal- eller TikTok-lenke.": "manual.invalidLink",
+            "TikTok-kortlenken kunne ikke åpnes.": "manual.tiktokShortOpenFailed",
+            "TikTok-kortlenken kunne ikke løses til en video.": "manual.tiktokShortResolveFailed",
+            "TikTok-kortlenken pekte ikke til en støttet video.": "manual.tiktokShortUnsupported"
+        });
+
+        function t(key, variables) {
+            const helper = window.ReactPlayerI18n;
+
+            if (helper && typeof helper.t === "function") {
+                try {
+                    return helper.t(key, variables);
+                } catch (error) {
+                    // A localization problem must never block Streamer.bot.
+                }
+            }
+
+            return key;
+        }
+
+        function getIntlLocale() {
+            const helper = window.ReactPlayerI18n;
+
+            if (
+                helper &&
+                typeof helper.getIntlLocale === "function"
+            ) {
+                try {
+                    return helper.getIntlLocale();
+                } catch (error) {
+                    // English remains the safe public fallback.
+                }
+            }
+
+            return "en-GB";
+        }
+
+        let streamerBotConnected = false;
+        let connectionPhase = "connecting";
+        let hasEverConnected = false;
+        let diagnosticsDismissed = false;
+        let initialConnectionDiagnosticTimer = null;
+        let client;
+
+        client = new StreamerbotClient({
+            host: "127.0.0.1",
+            port: 8080,
+            endpoint: "/",
+
+            onConnect: async () => {
+                streamerBotConnected = true;
+                handleConnectionEstablished();
+                setConnected(true);
+                obsDetectionStatus = "detecting";
+                renderObsSetup();
+                renderCurrent();
+
+                try {
+                    await reactActions.resolve(
+                        client
+                    );
+
+                    // Create any globals that do not exist yet.
+                    await reactActions.run(
+                        client,
+                        "control",
+                        { operation: "init" }
+                    );
+
+                    try {
+                        const broadcaster =
+                            await client.getBroadcaster();
+
+                        manualSubmitterName =
+                            (
+                                broadcaster &&
+                                broadcaster.platforms &&
+                                broadcaster.platforms.twitch &&
+                                broadcaster.platforms.twitch.broadcastUser
+                            ) ||
+                            (
+                                broadcaster &&
+                                broadcaster.platforms &&
+                                broadcaster.platforms.youtube &&
+                                broadcaster.platforms.youtube.broadcastUserName
+                            ) ||
+                            (
+                                broadcaster &&
+                                broadcaster.platforms &&
+                                broadcaster.platforms.kick &&
+                                broadcaster.platforms.kick.broadcasterUserName
+                            ) ||
+                            "Streamer";
+                    } catch (error) {
+                        console.warn(
+                            "Could not resolve broadcaster name for manual React submissions:",
+                            error
+                        );
+
+                        manualSubmitterName = "Streamer";
+                    }
+
+                    await loadState();
+                } catch (error) {
+                    console.error("React Player dock initialization failed:", error);
+                }
+            },
+
+            onDisconnect: () => {
+                streamerBotConnected = false;
+                setConnected(false);
+                renderObsSetup();
+                renderCurrent();
+                renderPlaybackPreferences();
+
+                if (hasEverConnected) {
+                    showConnectionDiagnostics();
+                }
+            },
+
+            onError: (error) => {
+                console.error("React Player dock Streamer.bot client error:", error);
+            }
+        });
+
+        client.on(
+            "Raw.ActionCompleted",
+            ({ data }) => {
+                if (!data || !data.arguments) {
+                    return;
+                }
+
+                const args = data.arguments;
+                const completedOperation =
+                    String(args.operation || "").toLowerCase();
+
+                if (
+                    reactActions.matches(data, "control") &&
+                    (
+                        completedOperation === "init" ||
+                        completedOperation === "detectobs" ||
+                        completedOperation === "setobstarget"
+                    )
+                ) {
+                    loadObsSetupState();
+                }
+
+                if (
+                    reactActions.matches(data, "control") &&
+                    (
+                        completedOperation === "openpreferences" ||
+                        completedOperation === "closepreferences"
+                    )
+                ) {
+                    loadPlaybackPreferencesState();
+                }
+
+                // Manual dock submission completion.
+                if (
+                    manualSubmitToken &&
+                    String(args.reactManualToken || "") ===
+                    String(manualSubmitToken)
+                ) {
+                    if (manualSubmitTimeout) {
+                        clearTimeout(manualSubmitTimeout);
+                        manualSubmitTimeout = null;
+                    }
+
+                    const submitSucceeded =
+                        parseBool(args.reactSubmitSuccess);
+
+                    if (submitSucceeded) {
+                        manualUrlInput.value = "";
+
+                        setManualAddStatus(
+                            "manual.added",
+                            "success"
+                        );
+                    } else {
+                        setManualAddStatus(
+                            manualErrorKey(
+                                args.reactSubmitErrorCode,
+                                args.reactSubmitError
+                            ),
+                            "error"
+                        );
+                    }
+
+                    manualSubmitToken = null;
+
+                    manualAddButton.disabled = false;
+                    manualUrlInput.disabled = false;
+                    renderManualAddButton();
+
+                    if (!submitSucceeded) {
+                        manualUrlInput.focus();
+                        manualUrlInput.select();
+                    }
+
+                    loadState();
+                }
+
+                // Dock control completion.
+                const controlToken =
+                    String(args.reactControlToken || "");
+
+                if (
+                    controlToken &&
+                    pendingControlTokens.has(controlToken)
+                ) {
+                    pendingControlTokens.delete(controlToken);
+
+                    releaseOptimisticForOperation(
+                        args.operation
+                    );
+
+                    // Now we know Streamer.bot actually finished the action.
+                    loadState();
+                }
+
+                // Viewer/chat React requests should appear immediately when the
+                // full React action finishes, including metadata/duration.
+                if (
+                    reactActions.matches(data, "addLink") &&
+                    !args.reactManualToken
+                ) {
+                    loadState();
+                }
+            }
+        );
+
+        const connectionStatus = document.getElementById("connectionStatus");
+        const connectionDiagnostics = document.getElementById("connectionDiagnostics");
+        const diagnosticsRetryButton = document.getElementById("diagnosticsRetryButton");
+        const diagnosticsDismissButton = document.getElementById("diagnosticsDismissButton");
+        const languageSelector = document.getElementById("languageSelector");
+        const obsSetupToggleButton = document.getElementById("obsSetupToggleButton");
+        const obsSetupPanel = document.getElementById("obsSetupPanel");
+        const obsSetupCloseButton = document.getElementById("obsSetupCloseButton");
+        const obsSetupStatus = document.getElementById("obsSetupStatus");
+        const obsSetupDetails = document.getElementById("obsSetupDetails");
+        const obsSetupSourceDetail = document.getElementById("obsSetupSourceDetail");
+        const obsSetupSourceValue = document.getElementById("obsSetupSourceValue");
+        const obsSetupContainerDetail = document.getElementById("obsSetupContainerDetail");
+        const obsSetupContainerLabel = document.getElementById("obsSetupContainerLabel");
+        const obsSetupContainerValue = document.getElementById("obsSetupContainerValue");
+        const obsSetupRequiredUrl = document.getElementById("obsSetupRequiredUrl");
+        const obsSetupCandidateArea = document.getElementById("obsSetupCandidateArea");
+        const obsSetupCandidateSelect = document.getElementById("obsSetupCandidateSelect");
+        const obsSetupDetectButton = document.getElementById("obsSetupDetectButton");
+        const obsSetupUseSelectedButton = document.getElementById("obsSetupUseSelectedButton");
+        const playbackPreferencesProviderSelect =
+            document.getElementById(
+                "playbackPreferencesProviderSelect"
+            );
+        const playbackPreferencesRequestSelect =
+            document.getElementById(
+                "playbackPreferencesRequestSelect"
+            );
+        const playbackPreferencesInstructions =
+            document.getElementById(
+                "playbackPreferencesInstructions"
+            );
+        const playbackPreferencesNoMedia =
+            document.getElementById(
+                "playbackPreferencesNoMedia"
+            );
+        const playbackPreferencesCurrentSafety =
+            document.getElementById(
+                "playbackPreferencesCurrentSafety"
+            );
+        const playbackPreferencesOpenButton =
+            document.getElementById(
+                "playbackPreferencesOpenButton"
+            );
+        const playbackPreferencesInteractButton =
+            document.getElementById(
+                "playbackPreferencesInteractButton"
+            );
+        const playbackPreferencesCloseButton =
+            document.getElementById(
+                "playbackPreferencesCloseButton"
+            );
+        const currentUser = document.getElementById("currentUser");
+        const currentUrl = document.getElementById("currentUrl");
+        const playerState = document.getElementById("playerState");
+
+        const visibilityButton = document.getElementById("visibilityButton");
+        const audioOnlyButton = document.getElementById("audioOnlyButton");
+        const pauseButton = document.getElementById("pauseButton");
+        const refreshButton = document.getElementById("refreshButton");
+        const projectorButton = document.getElementById("projectorButton");
+        const browserButton = document.getElementById("browserButton");
+        const copyUrlButton = document.getElementById("copyUrlButton");
+        const skipButton = document.getElementById("skipButton");
+        const stopButton = document.getElementById("stopButton");
+        const muteButton = document.getElementById("muteButton");
+        const volumeSlider = document.getElementById("volumeSlider");
+        const volumeValue = document.getElementById("volumeValue");
+
+        const back10Button = document.getElementById("back10Button");
+        const forward10Button = document.getElementById("forward10Button");
+        const currentTimeLabel = document.getElementById("currentTimeLabel");
+        const durationLabel = document.getElementById("durationLabel");
+        const dockSeekSlider = document.getElementById("dockSeekSlider");
+        const bufferedFill = document.getElementById("bufferedFill");
+        const playedFill = document.getElementById("playedFill");
+
+        const queueTab = document.getElementById("queueTab");
+        const historyTab = document.getElementById("historyTab");
+        const queueCount = document.getElementById("queueCount");
+        const historyCount = document.getElementById("historyCount");
+        const requestList = document.getElementById("requestList");
+        const clearButton = document.getElementById("clearButton");
+
+        const manualUrlInput = document.getElementById("manualUrlInput");
+        const manualAddButton = document.getElementById("manualAddButton");
+        const manualAddStatus = document.getElementById("manualAddStatus");
+        const autoPlayToggle = document.getElementById("autoPlayToggle");
+
+        let queue = [];
+        let history = [];
+        let current = null;
+        let currentPlayerState = "idle";
+        let sourceVisible = false;
+        let currentVolume = 100;
+        let currentMuted = false;
+        let videoHidden = false;
+        let telemetry = null;
+        let projectorOpen = false;
+        let autoPlayEnabled = false;
+        let activeTab = "queue";
+
+        let obsDetectionStatus = "unknown";
+        let obsSource = "";
+        let obsContainer = "";
+        let obsContainerType = "";
+        let obsSceneItemId = -1;
+        let obsSourceUrl = "";
+        let obsCandidates = [];
+        let obsSetupOpen = false;
+        let obsSetupStateInitialized = false;
+        let obsSetupLoading = false;
+        let obsSetupReloadRequested = false;
+        let selectedObsCandidateKey = "";
+
+        let playbackPreferencesActive = false;
+        let playbackPreferencesProvider = "";
+        let playbackPreferencesRequestId = "";
+        let selectedPlaybackPreferencesProvider = "youtube";
+        let selectedPlaybackPreferencesRequestId = "";
+        let playbackPreferencesLoading = false;
+        let playbackPreferencesReloadRequested = false;
+        let lastPlaybackPreferencesListSignature = "";
+
+        let playbackLoading = false;
+        let libraryLoading = false;
+        let syncBusy = false;
+        let volumeDebounceTimer = null;
+
+        let lastRenderedListSignature = "";
+        const pendingControlTokens = new Set();
+        const expandedRequestTitles = new Set();
+
+        const optimisticHoldUntil = {
+            current: 0,
+            playerState: 0,
+            visibility: 0,
+            projector: 0
+        };
+
+        let dockSeeking = false;
+        let pendingSeekTarget = null;
+        let pendingSeekStartedAt = 0;
+
+        let manualSubmitterName = "Streamer";
+        let manualSubmitToken = null;
+        let manualSubmitTimeout = null;
+        let manualAddStatusKey = "";
+        let manualAddStatusType = "";
+
+        function getGlobalValue(response) {
+            if (!response || !response.variable) {
+                return null;
+            }
+
+            return response.variable.value;
+        }
+
+        function parseJson(value, fallbackValue) {
+            if (value === undefined || value === null || value === "") {
+                return fallbackValue;
+            }
+
+            if (typeof value === "object") {
+                return value;
+            }
+
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+
+        function parseBool(value) {
+            if (value === true) {
+                return true;
+            }
+
+            return String(value || "").toLowerCase() === "true";
+        }
+
+        function normalizeObsDetectionStatus(value) {
+            const status =
+                String(value || "").trim().toLowerCase();
+
+            return OBS_DETECTION_STATUSES.has(status)
+                ? status
+                : "unknown";
+        }
+
+        function normalizeObsSceneItemId(value) {
+            const sceneItemId = Number(value);
+
+            return Number.isInteger(sceneItemId) && sceneItemId >= 0
+                ? sceneItemId
+                : -1;
+        }
+
+        function normalizeObsCandidate(value) {
+            if (
+                !value ||
+                typeof value !== "object" ||
+                Array.isArray(value)
+            ) {
+                return null;
+            }
+
+            const sourceName = String(
+                value.SourceName ??
+                value.sourceName ??
+                ""
+            );
+
+            const containerName = String(
+                value.ContainerName ??
+                value.containerName ??
+                ""
+            );
+
+            const containerType = String(
+                value.ContainerType ??
+                value.containerType ??
+                ""
+            ).trim().toLowerCase();
+
+            const sceneItemId = normalizeObsSceneItemId(
+                value.SceneItemId ??
+                value.sceneItemId
+            );
+
+            const url = String(
+                value.Url ??
+                value.url ??
+                ""
+            ).trim();
+
+            return {
+                SourceName: sourceName,
+                ContainerName: containerName,
+                ContainerType: containerType,
+                SceneItemId: sceneItemId,
+                Url: url
+            };
+        }
+
+        function isObsPlacementCandidate(candidate) {
+            return !!(
+                candidate &&
+                candidate.SourceName &&
+                candidate.ContainerName &&
+                (
+                    candidate.ContainerType === "scene" ||
+                    candidate.ContainerType === "group"
+                ) &&
+                normalizeObsSceneItemId(candidate.SceneItemId) >= 0
+            );
+        }
+
+        function obsCandidateKey(candidate) {
+            if (!candidate) {
+                return "";
+            }
+
+            return JSON.stringify([
+                String(candidate.SourceName || ""),
+                String(candidate.ContainerName || ""),
+                String(candidate.ContainerType || "").toLowerCase(),
+                normalizeObsSceneItemId(candidate.SceneItemId)
+            ]);
+        }
+
+        function currentObsTargetKey() {
+            return obsCandidateKey({
+                SourceName: obsSource,
+                ContainerName: obsContainer,
+                ContainerType: obsContainerType,
+                SceneItemId: obsSceneItemId
+            });
+        }
+
+        function obsStatusTranslationKey(status) {
+            switch (status) {
+                case "detecting": return "obsSetup.detecting";
+                case "ready": return "obsSetup.ready";
+                case "not_found": return "obsSetup.notFound";
+                case "not_placed": return "obsSetup.notPlaced";
+                case "ambiguous": return "obsSetup.ambiguous";
+                case "error": return "obsSetup.error";
+                default: return "obsSetup.unknown";
+            }
+        }
+
+        function obsCandidateBaseLabel(candidate) {
+            const containerLabel =
+                candidate.ContainerType === "group"
+                    ? t("obsSetup.group")
+                    : t("obsSetup.scene");
+
+            return (
+                containerLabel +
+                ": " +
+                candidate.ContainerName +
+                " / " +
+                t("obsSetup.source") +
+                ": " +
+                candidate.SourceName
+            );
+        }
+
+        function obsCandidateLabel(candidate, candidates) {
+            const baseLabel = obsCandidateBaseLabel(candidate);
+            const duplicateCount = candidates.filter(
+                (entry) =>
+                    obsCandidateBaseLabel(entry) === baseLabel
+            ).length;
+
+            return duplicateCount > 1
+                ? baseLabel + " (#" + candidate.SceneItemId + ")"
+                : baseLabel;
+        }
+
+        function obsDiagnosticSourceNames() {
+            const names = [];
+
+            if (obsSource) {
+                names.push(obsSource);
+            }
+
+            for (const candidate of obsCandidates) {
+                if (
+                    candidate &&
+                    candidate.SourceName &&
+                    !names.includes(candidate.SourceName)
+                ) {
+                    names.push(candidate.SourceName);
+                }
+            }
+
+            return names;
+        }
+
+        function obsTargetReady() {
+            return obsDetectionStatus === "ready";
+        }
+
+        function renderObsSetup() {
+            obsSetupPanel.hidden = !obsSetupOpen;
+            obsSetupPanel.dataset.status = obsDetectionStatus;
+
+            obsSetupToggleButton.classList.toggle(
+                "open",
+                obsSetupOpen
+            );
+
+            obsSetupToggleButton.setAttribute(
+                "aria-expanded",
+                obsSetupOpen ? "true" : "false"
+            );
+
+            const toggleLabel = t(
+                obsSetupOpen
+                    ? "settings.close"
+                    : "settings.open"
+            );
+
+            obsSetupToggleButton.setAttribute(
+                "aria-label",
+                toggleLabel
+            );
+            obsSetupToggleButton.title = toggleLabel;
+
+            const closeLabel = t("settings.close");
+            obsSetupCloseButton.setAttribute(
+                "aria-label",
+                closeLabel
+            );
+            obsSetupCloseButton.title = closeLabel;
+
+            obsSetupStatus.textContent = t(
+                obsStatusTranslationKey(obsDetectionStatus)
+            );
+
+            const diagnosticSources =
+                obsDiagnosticSourceNames();
+
+            const sourceValue =
+                obsDetectionStatus === "ready"
+                    ? obsSource
+                    : obsDetectionStatus === "not_placed"
+                        ? diagnosticSources.join(", ")
+                        : "";
+
+            const showSource = !!sourceValue;
+            const showContainer = !!(
+                obsDetectionStatus === "ready" &&
+                obsContainer
+            );
+
+            obsSetupDetails.hidden =
+                !showSource && !showContainer;
+
+            obsSetupSourceDetail.hidden = !showSource;
+            obsSetupSourceValue.textContent = sourceValue;
+
+            obsSetupContainerDetail.hidden = !showContainer;
+            obsSetupContainerLabel.textContent = t(
+                obsContainerType === "group"
+                    ? "obsSetup.group"
+                    : "obsSetup.scene"
+            );
+            obsSetupContainerValue.textContent = obsContainer;
+
+            obsSetupRequiredUrl.hidden =
+                obsDetectionStatus !== "not_found";
+
+            const placementCandidates =
+                obsCandidates.filter(isObsPlacementCandidate);
+
+            const showCandidates =
+                obsDetectionStatus === "ambiguous";
+
+            obsSetupCandidateArea.hidden = !showCandidates;
+            obsSetupUseSelectedButton.hidden = !showCandidates;
+
+            const availableCandidateKeys = new Set(
+                placementCandidates.map(obsCandidateKey)
+            );
+
+            if (
+                !availableCandidateKeys.has(
+                    selectedObsCandidateKey
+                )
+            ) {
+                const savedTargetKey =
+                    currentObsTargetKey();
+
+                selectedObsCandidateKey =
+                    availableCandidateKeys.has(savedTargetKey)
+                        ? savedTargetKey
+                        : placementCandidates.length > 0
+                            ? obsCandidateKey(placementCandidates[0])
+                            : "";
+            }
+
+            obsSetupCandidateSelect.replaceChildren();
+
+            for (const candidate of placementCandidates) {
+                const option = document.createElement("option");
+                option.value = obsCandidateKey(candidate);
+                option.textContent = obsCandidateLabel(
+                    candidate,
+                    placementCandidates
+                );
+                option.selected =
+                    option.value === selectedObsCandidateKey;
+
+                obsSetupCandidateSelect.appendChild(option);
+            }
+
+            const setupBusy =
+                obsDetectionStatus === "detecting";
+
+            obsSetupDetectButton.disabled =
+                !streamerBotConnected || setupBusy;
+
+            obsSetupCandidateSelect.disabled =
+                !streamerBotConnected ||
+                setupBusy ||
+                placementCandidates.length === 0;
+
+            obsSetupUseSelectedButton.disabled =
+                !streamerBotConnected ||
+                setupBusy ||
+                !selectedObsCandidateKey;
+
+            obsSetupDetectButton.textContent = t(
+                "obsSetup.detectAgain"
+            );
+
+            obsSetupUseSelectedButton.textContent = t(
+                "obsSetup.useSelected"
+            );
+        }
+
+        function applyObsSetupState(nextState) {
+            const previousStatus = obsDetectionStatus;
+            const nextStatus = normalizeObsDetectionStatus(
+                nextState.status
+            );
+
+            obsDetectionStatus = nextStatus;
+            obsSource = String(nextState.source || "");
+            obsContainer = String(nextState.container || "");
+            obsContainerType = String(
+                nextState.containerType || ""
+            ).trim().toLowerCase();
+            obsSceneItemId = normalizeObsSceneItemId(
+                nextState.sceneItemId
+            );
+            obsSourceUrl = String(nextState.sourceUrl || "").trim();
+            obsCandidates = Array.isArray(nextState.candidates)
+                ? nextState.candidates
+                : [];
+
+            if (
+                obsSetupStateInitialized &&
+                nextStatus !== previousStatus &&
+                nextStatus === "ready"
+            ) {
+                obsSetupOpen = false;
+            }
+
+            obsSetupStateInitialized = true;
+            renderObsSetup();
+            renderCurrent();
+        }
+
+        function setConnected(connected) {
+            connectionPhase = connected
+                ? "connected"
+                : "disconnected";
+
+            renderConnectionStatus();
+        }
+
+        function renderConnectionStatus() {
+            const statusKey = connectionPhase === "connected"
+                ? "connection.connected"
+                : connectionPhase === "connecting"
+                    ? "connection.connecting"
+                    : "connection.disconnected";
+
+            connectionStatus.textContent = t(statusKey);
+            connectionStatus.className = connectionPhase === "connected"
+                ? "status connected"
+                : "status disconnected";
+        }
+
+        function hideConnectionDiagnostics() {
+            connectionDiagnostics.hidden = true;
+        }
+
+        function showConnectionDiagnostics() {
+            if (
+                streamerBotConnected ||
+                diagnosticsDismissed
+            ) {
+                return;
+            }
+
+            connectionDiagnostics.hidden = false;
+        }
+
+        function handleConnectionEstablished() {
+            hasEverConnected = true;
+            diagnosticsDismissed = false;
+
+            if (initialConnectionDiagnosticTimer) {
+                clearTimeout(initialConnectionDiagnosticTimer);
+                initialConnectionDiagnosticTimer = null;
+            }
+
+            hideConnectionDiagnostics();
+        }
+
+        function startInitialConnectionDiagnosticTimer() {
+            if (
+                initialConnectionDiagnosticTimer ||
+                hasEverConnected
+            ) {
+                return;
+            }
+
+            initialConnectionDiagnosticTimer = setTimeout(() => {
+                initialConnectionDiagnosticTimer = null;
+
+                if (
+                    !hasEverConnected &&
+                    !streamerBotConnected
+                ) {
+                    setConnected(false);
+                    showConnectionDiagnostics();
+                }
+            }, 7000);
+        }
+
+        function stateLabel(state) {
+            switch (state) {
+                case "playing": return t("state.playing");
+                case "paused": return t("state.paused");
+                case "loading": return t("state.loading");
+                case "ended": return t("state.ended");
+                case "error": return t("state.error");
+                default: return t("state.empty");
+            }
+        }
+
+        function formatPlaybackTime(value) {
+            const seconds = Math.max(
+                0,
+                Math.floor(Number(value || 0))
+            );
+
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const remainingSeconds = seconds % 60;
+
+            if (hours > 0) {
+                return (
+                    hours +
+                    ":" +
+                    String(minutes).padStart(2, "0") +
+                    ":" +
+                    String(remainingSeconds).padStart(2, "0")
+                );
+            }
+
+            return (
+                minutes +
+                ":" +
+                String(remainingSeconds).padStart(2, "0")
+            );
+        }
+
+        function currentProvider() {
+            return String(
+                current &&
+                    current.Provider
+                    ? current.Provider
+                    : ""
+            ).toLowerCase();
+        }
+
+        function currentSupportsInteractivePlayback() {
+            const provider =
+                currentProvider();
+
+            return (
+                provider === "youtube" ||
+                provider === "tiktok"
+            );
+        }
+
+        function currentSupportsVolumeControl() {
+            return currentProvider() === "youtube";
+        }
+
+        function currentSupportsMuteControl() {
+            const provider =
+                currentProvider();
+
+            return (
+                provider === "youtube" ||
+                provider === "tiktok"
+            );
+        }
+
+        function normalizedTelemetry() {
+            if (
+                !telemetry ||
+                !current ||
+                telemetry.RequestId !== current.Id
+            ) {
+                return {
+                    currentTime: 0,
+                    duration: 0,
+                    buffered: 0
+                };
+            }
+
+            return {
+                currentTime: Math.max(
+                    0,
+                    Number(telemetry.CurrentTime || 0)
+                ),
+                duration: Math.max(
+                    0,
+                    Number(telemetry.Duration || 0)
+                ),
+                buffered: Math.max(
+                    0,
+                    Math.min(1, Number(telemetry.Buffered || 0))
+                )
+            };
+        }
+
+        function renderPlaybackProgress() {
+            const hasCurrent = !!current;
+            const interactive =
+                currentSupportsInteractivePlayback();
+
+            const data = normalizedTelemetry();
+
+            const duration =
+                interactive
+                    ? data.duration
+                    : requestDurationSeconds(current);
+
+            let displayTime = data.currentTime;
+
+            if (pendingSeekTarget !== null) {
+                const pendingAge = Date.now() - pendingSeekStartedAt;
+                const caughtUp = Math.abs(data.currentTime - pendingSeekTarget) <= 2;
+
+                if (caughtUp || pendingAge > 2000) {
+                    pendingSeekTarget = null;
+                } else {
+                    displayTime = pendingSeekTarget;
+                }
+            }
+
+            if (dockSeeking) {
+                displayTime = Number(dockSeekSlider.value || 0);
+            }
+
+            if (duration > 0) {
+                displayTime = Math.max(
+                    0,
+                    Math.min(duration, displayTime)
+                );
+            } else {
+                displayTime = 0;
+            }
+
+            const playedPercent =
+                duration > 0
+                    ? Math.max(
+                        0,
+                        Math.min(100, (displayTime / duration) * 100)
+                    )
+                    : 0;
+
+            const bufferedPercent =
+                duration > 0
+                    ? Math.max(
+                        playedPercent,
+                        Math.min(100, data.buffered * 100)
+                    )
+                    : 0;
+
+            currentTimeLabel.textContent =
+                interactive
+                    ? formatPlaybackTime(displayTime)
+                    : "--:--";
+
+            durationLabel.textContent =
+                duration > 0
+                    ? formatPlaybackTime(duration)
+                    : "--:--";
+
+            playedFill.style.width =
+                interactive
+                    ? playedPercent + "%"
+                    : "0%";
+
+            bufferedFill.style.width =
+                interactive
+                    ? bufferedPercent + "%"
+                    : "0%";
+
+            back10Button.disabled =
+                !hasCurrent ||
+                !interactive ||
+                duration <= 0;
+
+            forward10Button.disabled =
+                !hasCurrent ||
+                !interactive ||
+                duration <= 0;
+
+            dockSeekSlider.disabled =
+                !hasCurrent ||
+                !interactive ||
+                duration <= 0;
+
+            if (!dockSeeking) {
+                dockSeekSlider.max =
+                    duration > 0
+                        ? String(Math.max(1, Math.floor(duration)))
+                        : "100";
+
+                dockSeekSlider.value =
+                    duration > 0
+                        ? String(Math.round(displayTime))
+                        : "0";
+            }
+        }
+
+        function formatDate(value) {
+            if (!value) {
+                return "";
+            }
+
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) {
+                return "";
+            }
+
+            return date.toLocaleString(getIntlLocale(), {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+        }
+
+        function manualErrorKey(errorCode, errorText) {
+            const codeKey = MANUAL_ERROR_CODE_KEYS[
+                String(errorCode || "").trim()
+            ];
+
+            if (codeKey) {
+                return codeKey;
+            }
+
+            return LEGACY_MANUAL_ERROR_KEYS[
+                String(errorText || "").trim()
+            ] || "manual.addFailed";
+        }
+
+        function renderManualAddStatus() {
+            manualAddStatus.textContent = manualAddStatusKey
+                ? t(manualAddStatusKey)
+                : "";
+
+            manualAddStatus.className =
+                "manual-add-status" +
+                (manualAddStatusType
+                    ? " " + manualAddStatusType
+                    : "");
+        }
+
+        function setManualAddStatus(
+            key,
+            type = "") {
+            manualAddStatusKey = String(key || "");
+            manualAddStatusType = type;
+            renderManualAddStatus();
+        }
+
+        function renderManualAddButton() {
+            manualAddButton.textContent = t(
+                manualSubmitToken
+                    ? "manual.adding"
+                    : "manual.add"
+            );
+        }
+
+        function newManualToken() {
+            if (
+                window.crypto &&
+                typeof window.crypto.randomUUID === "function"
+            ) {
+                return window.crypto.randomUUID();
+            }
+
+            return (
+                Date.now().toString(36) +
+                "-" +
+                Math.random().toString(36).slice(2)
+            );
+        }
+
+        async function submitManualRequest() {
+            if (
+                !streamerBotConnected ||
+                manualSubmitToken
+            ) {
+                return;
+            }
+
+            const url =
+                String(manualUrlInput.value || "").trim();
+
+            if (!url) {
+                setManualAddStatus(
+                    "manual.pasteSupported",
+                    "error"
+                );
+
+                manualUrlInput.focus();
+                return;
+            }
+
+            manualSubmitToken = newManualToken();
+
+            manualAddButton.disabled = true;
+            manualUrlInput.disabled = true;
+            renderManualAddButton();
+            setManualAddStatus("manual.validating");
+
+            try {
+                await reactActions.run(
+                    client,
+                    "addLink",
+                    {
+                        reactInput: url,
+                        rawInput: url,
+                        user: manualSubmitterName,
+                        userName: manualSubmitterName,
+                        userId: "manual",
+                        reactOriginType: "manual",
+                        reactOriginPlatform: "dock",
+                        reactOriginLabel: "Manual",
+                        reactManualSubmit: true,
+                        reactManualToken: manualSubmitToken
+                    }
+                );
+
+                manualSubmitTimeout = setTimeout(() => {
+                    manualSubmitToken = null;
+                    manualSubmitTimeout = null;
+
+                    manualAddButton.disabled = false;
+                    manualUrlInput.disabled = false;
+                    renderManualAddButton();
+
+                    setManualAddStatus(
+                        "manual.noResponse",
+                        "error"
+                    );
+                }, 15000);
+            } catch (error) {
+                console.error(
+                    "Manual React submission failed:",
+                    error
+                );
+
+                manualSubmitToken = null;
+
+                manualAddButton.disabled = false;
+                manualUrlInput.disabled = false;
+                renderManualAddButton();
+
+                setManualAddStatus(
+                    "manual.sendFailed",
+                    "error"
+                );
+            }
+        }
+
+        function reorderQueueOptimistically(
+            requestId,
+            direction) {
+            if (!streamerBotConnected) {
+                return;
+            }
+
+            const currentIndex =
+                queue.findIndex(
+                    (request) =>
+                        request &&
+                        request.Id === requestId
+                );
+
+            if (currentIndex < 0) {
+                return;
+            }
+
+            const targetIndex =
+                currentIndex + direction;
+
+            if (
+                targetIndex < 0 ||
+                targetIndex >= queue.length
+            ) {
+                return;
+            }
+
+            const temporary =
+                queue[currentIndex];
+
+            queue[currentIndex] =
+                queue[targetIndex];
+
+            queue[targetIndex] =
+                temporary;
+
+            render();
+
+            control(
+                direction < 0
+                    ? "moveup"
+                    : "movedown",
+                requestId
+            );
+        }
+
+        function holdOptimistic(
+            key,
+            milliseconds = 1500) {
+            optimisticHoldUntil[key] =
+                Date.now() + milliseconds;
+        }
+
+        function optimisticHeld(key) {
+            return Date.now() <
+                Number(optimisticHoldUntil[key] || 0);
+        }
+
+        function releaseOptimisticForOperation(operation) {
+            const op =
+                String(operation || "").toLowerCase();
+
+            if (op === "togglevisibility") {
+                optimisticHoldUntil.visibility = 0;
+                return;
+            }
+
+            if (op === "toggleprojector") {
+                optimisticHoldUntil.projector = 0;
+                return;
+            }
+
+            if (op === "pause") {
+                optimisticHoldUntil.playerState = 0;
+                return;
+            }
+
+            if (
+                op === "mute" ||
+                op === "unmute" ||
+                op === "togglemute"
+            ) {
+                optimisticHoldUntil.muted = 0;
+                return;
+            }
+
+            if (
+                op === "hidevideo" ||
+                op === "showvideo" ||
+                op === "togglevideo"
+            ) {
+                optimisticHoldUntil.videoHidden = 0;
+                return;
+            }
+
+            if (
+                op === "play" ||
+                op === "stop" ||
+                op === "done" ||
+                op === "remove" ||
+                op === "skip"
+            ) {
+                optimisticHoldUntil.current = 0;
+                optimisticHoldUntil.playerState = 0;
+            }
+        }
+
+        function getListSignature() {
+            return JSON.stringify({
+                tab: activeTab,
+                queue: queue,
+                current: current,
+                history: history
+            });
+        }
+
+        async function loadPlaybackState() {
+            if (!streamerBotConnected || playbackLoading) {
+                return;
+            }
+
+            playbackLoading = true;
+
+            try {
+                const responses = await Promise.all([
+                    client.getGlobal(GLOBAL_CURRENT, true),
+                    client.getGlobal(GLOBAL_PLAYER_STATE, true),
+                    client.getGlobal(GLOBAL_VISIBLE, true),
+                    client.getGlobal(GLOBAL_VOLUME, true),
+                    client.getGlobal(GLOBAL_MUTED, true),
+                    client.getGlobal(GLOBAL_VIDEO_HIDDEN, true),
+                    client.getGlobal(GLOBAL_TELEMETRY, false),
+                    client.getGlobal(GLOBAL_PROJECTOR_OPEN, false)
+                ]);
+
+                const remoteCurrent =
+                    parseJson(
+                        getGlobalValue(responses[0]),
+                        null
+                    );
+
+                const remotePlayerState =
+                    String(
+                        getGlobalValue(responses[1]) ||
+                        "idle"
+                    ).toLowerCase();
+
+                const remoteVisible =
+                    parseBool(
+                        getGlobalValue(responses[2])
+                    );
+
+                currentVolume = Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        Number(
+                            getGlobalValue(responses[3]) ?? 100
+                        )
+                    )
+                );
+
+                const remoteMuted =
+                    parseBool(
+                        getGlobalValue(responses[4])
+                    );
+
+                const remoteVideoHidden =
+                    parseBool(
+                        getGlobalValue(responses[5])
+                    );
+
+                telemetry = parseJson(
+                    getGlobalValue(responses[6]),
+                    null
+                );
+
+                const remoteProjectorOpen =
+                    parseBool(
+                        getGlobalValue(responses[7])
+                    );
+
+                if (!optimisticHeld("current")) {
+                    current = remoteCurrent;
+                }
+
+                if (!optimisticHeld("playerState")) {
+                    currentPlayerState =
+                        remotePlayerState;
+                }
+
+                if (!optimisticHeld("visibility")) {
+                    sourceVisible =
+                        remoteVisible;
+                }
+
+                if (!optimisticHeld("muted")) {
+                    currentMuted =
+                        remoteMuted;
+                }
+
+                if (!optimisticHeld("videoHidden")) {
+                    videoHidden =
+                        remoteVideoHidden;
+                }
+
+                if (!optimisticHeld("projector")) {
+                    projectorOpen =
+                        remoteProjectorOpen;
+                }
+
+                setConnected(true);
+                renderChrome();
+            } catch (error) {
+                console.error(
+                    "React Player dock playback sync failed:",
+                    error
+                );
+            } finally {
+                playbackLoading = false;
+            }
+        }
+
+        async function loadLibraryState() {
+            if (!streamerBotConnected || libraryLoading) {
+                return;
+            }
+
+            libraryLoading = true;
+
+            try {
+                const responses = await Promise.all([
+                    client.getGlobal(GLOBAL_QUEUE, true),
+                    client.getGlobal(GLOBAL_HISTORY, true),
+                    client.getGlobal(GLOBAL_AUTOPLAY, true)
+                ]);
+
+                queue = parseJson(
+                    getGlobalValue(responses[0]),
+                    []
+                );
+
+                history = parseJson(
+                    getGlobalValue(responses[1]),
+                    []
+                );
+
+                autoPlayEnabled =
+                    parseBool(
+                        getGlobalValue(responses[2])
+                    );
+
+                const listSignature =
+                    getListSignature();
+
+                if (
+                    listSignature !==
+                    lastRenderedListSignature
+                ) {
+                    renderList();
+
+                    lastRenderedListSignature =
+                        listSignature;
+                }
+
+                renderChrome();
+            } catch (error) {
+                console.error(
+                    "React Player dock library sync failed:",
+                    error
+                );
+            } finally {
+                libraryLoading = false;
+            }
+        }
+
+        async function loadPlaybackPreferencesState() {
+            if (!streamerBotConnected) {
+                return;
+            }
+
+            if (playbackPreferencesLoading) {
+                playbackPreferencesReloadRequested = true;
+                return;
+            }
+
+            playbackPreferencesLoading = true;
+
+            try {
+                const responses = await Promise.all([
+                    client.getGlobal(
+                        GLOBAL_PLAYBACK_PREFERENCES_ACTIVE,
+                        false
+                    ),
+                    client.getGlobal(
+                        GLOBAL_PLAYBACK_PREFERENCES_PROVIDER,
+                        false
+                    ),
+                    client.getGlobal(
+                        GLOBAL_PLAYBACK_PREFERENCES_REQUEST_ID,
+                        false
+                    )
+                ]);
+
+                const active = parseBool(
+                    getGlobalValue(responses[0])
+                );
+
+                const provider =
+                    normalizePlaybackPreferenceProvider(
+                        getGlobalValue(responses[1])
+                    );
+
+                const requestId = String(
+                    getGlobalValue(responses[2]) || ""
+                ).trim();
+
+                playbackPreferencesActive = active;
+                playbackPreferencesProvider = active
+                    ? provider
+                    : "";
+                playbackPreferencesRequestId = active
+                    ? requestId
+                    : "";
+
+                if (active && provider) {
+                    selectedPlaybackPreferencesProvider =
+                        provider;
+                }
+
+                if (active && requestId) {
+                    selectedPlaybackPreferencesRequestId =
+                        requestId;
+                }
+
+                renderPlaybackPreferences();
+            } catch (error) {
+                console.error(
+                    "React Player dock playback preferences sync failed:",
+                    error
+                );
+            } finally {
+                playbackPreferencesLoading = false;
+
+                if (playbackPreferencesReloadRequested) {
+                    playbackPreferencesReloadRequested = false;
+                    loadPlaybackPreferencesState();
+                }
+            }
+        }
+
+        async function loadObsSetupState() {
+            if (!streamerBotConnected) {
+                return;
+            }
+
+            if (obsSetupLoading) {
+                obsSetupReloadRequested = true;
+                return;
+            }
+
+            obsSetupLoading = true;
+
+            try {
+                const responses = await Promise.all([
+                    client.getGlobal(
+                        GLOBAL_OBS_DETECTION_STATUS,
+                        true
+                    ),
+                    client.getGlobal(GLOBAL_OBS_SOURCE, true),
+                    client.getGlobal(GLOBAL_OBS_CONTAINER, true),
+                    client.getGlobal(
+                        GLOBAL_OBS_CONTAINER_TYPE,
+                        true
+                    ),
+                    client.getGlobal(
+                        GLOBAL_OBS_SCENE_ITEM_ID,
+                        true
+                    ),
+                    client.getGlobal(GLOBAL_OBS_SOURCE_URL, true),
+                    client.getGlobal(
+                        GLOBAL_OBS_CANDIDATES,
+                        true
+                    )
+                ]);
+
+                const rawCandidates = parseJson(
+                    getGlobalValue(responses[6]),
+                    []
+                );
+
+                const candidates = Array.isArray(rawCandidates)
+                    ? rawCandidates
+                        .map(normalizeObsCandidate)
+                        .filter(Boolean)
+                    : [];
+
+                applyObsSetupState({
+                    status: getGlobalValue(responses[0]),
+                    source: getGlobalValue(responses[1]),
+                    container: getGlobalValue(responses[2]),
+                    containerType: getGlobalValue(responses[3]),
+                    sceneItemId: getGlobalValue(responses[4]),
+                    sourceUrl: getGlobalValue(responses[5]),
+                    candidates: candidates
+                });
+            } catch (error) {
+                console.error(
+                    "React Player dock OBS setup sync failed:",
+                    error
+                );
+            } finally {
+                obsSetupLoading = false;
+
+                if (obsSetupReloadRequested) {
+                    obsSetupReloadRequested = false;
+                    loadObsSetupState();
+                }
+            }
+        }
+
+        async function loadState() {
+            await Promise.all([
+                loadPlaybackState(),
+                loadLibraryState(),
+                loadObsSetupState(),
+                loadPlaybackPreferencesState()
+            ]);
+        }
+
+        async function control(operation, id = "", extra = {}) {
+            if (!streamerBotConnected) {
+                return;
+            }
+
+            const controlToken =
+                "dock-" +
+                Date.now().toString(36) +
+                "-" +
+                Math.random().toString(36).slice(2);
+
+            pendingControlTokens.add(controlToken);
+
+            try {
+                await reactActions.run(
+                    client,
+                    "control",
+                    Object.assign(
+                        {
+                            operation: operation,
+                            id: id,
+                            reactControlToken: controlToken
+                        },
+                        extra
+                    )
+                );
+
+                // Safety fallback in case ActionCompleted is ever missed.
+                setTimeout(() => {
+                    if (
+                        pendingControlTokens.has(
+                            controlToken
+                        )
+                    ) {
+                        pendingControlTokens.delete(
+                            controlToken
+                        );
+
+                        releaseOptimisticForOperation(
+                            operation
+                        );
+
+                        loadState();
+                    }
+                }, 3000);
+            } catch (error) {
+                pendingControlTokens.delete(controlToken);
+
+                releaseOptimisticForOperation(
+                    operation
+                );
+
+                console.error("React Player control failed:", error);
+                loadState();
+            }
+        }
+
+        async function syncVisibility() {
+            if (!streamerBotConnected || syncBusy) {
+                return;
+            }
+
+            syncBusy = true;
+
+            try {
+                await reactActions.run(
+                    client,
+                    "control",
+                    {
+                        operation: "sync"
+                    }
+                );
+            } catch (error) {
+                // Main polling will show disconnected state if Streamer.bot is unavailable.
+            } finally {
+                syncBusy = false;
+            }
+        }
+
+        function requestUrl(request) {
+            if (!request) {
+                return "";
+            }
+
+            const provider = String(
+                request.Provider || ""
+            ).toLowerCase();
+
+            const contentId = String(
+                request.ContentId || ""
+            ).trim();
+
+            if (
+                provider === "youtube" &&
+                contentId
+            ) {
+                return (
+                    "https://www.youtube.com/watch?v=" +
+                    encodeURIComponent(contentId)
+                );
+            }
+
+            if (
+                provider === "twitch" &&
+                contentId
+            ) {
+                return (
+                    "https://clips.twitch.tv/" +
+                    encodeURIComponent(contentId)
+                );
+            }
+
+            if (
+                provider === "medal" &&
+                contentId
+            ) {
+                return (
+                    "https://medal.tv/clips/" +
+                    encodeURIComponent(contentId)
+                );
+            }
+
+            return String(
+                request.Url ||
+                request.OriginalUrl ||
+                ""
+            );
+        }
+
+        async function copyTextToClipboard(value) {
+            const textToCopy = String(value || "");
+
+            if (!textToCopy) {
+                return false;
+            }
+
+            try {
+                if (
+                    navigator.clipboard &&
+                    typeof navigator.clipboard.writeText === "function"
+                ) {
+                    await navigator.clipboard.writeText(textToCopy);
+                    return true;
+                }
+            } catch (error) {
+                console.warn("Clipboard API failed, trying fallback:", error);
+            }
+
+            try {
+                const textarea = document.createElement("textarea");
+
+                textarea.value = textToCopy;
+                textarea.setAttribute("readonly", "");
+                textarea.style.position = "fixed";
+                textarea.style.left = "-9999px";
+                textarea.style.top = "0";
+
+                document.body.appendChild(textarea);
+
+                textarea.focus();
+                textarea.select();
+
+                const copied = document.execCommand("copy");
+
+                document.body.removeChild(textarea);
+
+                return copied;
+            } catch (error) {
+                console.error("Clipboard fallback failed:", error);
+                return false;
+            }
+        }
+
+        async function copyRequestUrl(request, button) {
+            const url = requestUrl(request);
+
+            if (!url || !button) {
+                return;
+            }
+
+            const originalText = button.textContent;
+            const originalClass = button.className;
+
+            const copied = await copyTextToClipboard(url);
+
+            button.textContent = copied
+                ? t("copy.copied")
+                : t("copy.failed");
+            button.className =
+                originalClass +
+                (copied ? " copy-success" : " copy-error");
+
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.className = originalClass;
+            }, 1200);
+        }
+
+        function makeCopyButton(request) {
+            const button = document.createElement("button");
+
+            button.textContent = t("controls.copyUrl");
+
+            button.addEventListener("click", () => {
+                copyRequestUrl(request, button);
+            });
+
+            return button;
+        }
+
+        function makeReorderButton(
+            text,
+            title,
+            disabled,
+            handler) {
+            const button = document.createElement("button");
+
+            button.type = "button";
+            button.className = "reorder-button";
+            button.textContent = text;
+            button.title = title;
+            button.setAttribute("aria-label", title);
+            button.disabled = !!disabled;
+
+            if (!button.disabled) {
+                button.addEventListener("click", handler);
+            }
+
+            return button;
+        }
+
+        function makeButton(text, className, handler) {
+            const button = document.createElement("button");
+            button.textContent = text;
+
+            if (className) {
+                button.className = className;
+            }
+
+            button.addEventListener("click", handler);
+            return button;
+        }
+
+        function requestDurationSeconds(request) {
+            return Math.max(
+                0,
+                Math.round(
+                    Number(
+                        request && request.DurationSeconds
+                            ? request.DurationSeconds
+                            : 0
+                    )
+                )
+            );
+        }
+
+        function durationClass(seconds) {
+            if (seconds <= 600) {
+                return "duration-short";
+            }
+
+            if (seconds <= 1800) {
+                return "duration-medium";
+            }
+
+            if (seconds <= 3600) {
+                return "duration-long";
+            }
+
+            return "duration-very-long";
+        }
+
+        function durationTitle(seconds) {
+            if (seconds <= 600) {
+                return t("duration.short");
+            }
+
+            if (seconds <= 1800) {
+                return t("duration.medium");
+            }
+
+            if (seconds <= 3600) {
+                return t("duration.long");
+            }
+
+            return t("duration.veryLong");
+        }
+
+        function providerLabel(provider) {
+            const value = String(provider || "").toLowerCase();
+
+            if (value === "youtube") {
+                return "YouTube";
+            }
+
+            if (value === "twitch") {
+                return "Twitch";
+            }
+
+            if (value === "medal") {
+                return "Medal";
+            }
+
+            if (value === "tiktok") {
+                return "TikTok";
+            }
+
+            return provider || "";
+        }
+
+        function cleanTikTokDisplayTitle(value) {
+            let title =
+                String(value || "")
+                    .replace(
+                        /(^|\s)#[^\s#]+/g,
+                        "$1"
+                    )
+                    .replace(
+                        /\s+/g,
+                        " "
+                    )
+                    .trim();
+
+            return title || "TikTok";
+        }
+
+        function requestDisplayTitle(request) {
+            let title =
+                request.Title ||
+                request.Url ||
+                request.OriginalUrl ||
+                t("request.unknownMedia");
+
+            if (
+                String(
+                    request.Provider || ""
+                ).toLowerCase() === "tiktok"
+            ) {
+                title =
+                    cleanTikTokDisplayTitle(
+                        title
+                    );
+            }
+
+            return title;
+        }
+
+        function normalizePlaybackPreferenceProvider(value) {
+            const provider = String(value || "")
+                .trim()
+                .toLowerCase();
+
+            return PLAYBACK_PREFERENCE_PROVIDERS.some(
+                (entry) => entry.value === provider
+            )
+                ? provider
+                : "";
+        }
+
+        function playbackPreferenceProviderConfig(provider) {
+            const normalizedProvider =
+                normalizePlaybackPreferenceProvider(provider);
+
+            return PLAYBACK_PREFERENCE_PROVIDERS.find(
+                (entry) => entry.value === normalizedProvider
+            ) || PLAYBACK_PREFERENCE_PROVIDERS[0];
+        }
+
+        function playbackPreferenceRequests(provider) {
+            const normalizedProvider =
+                normalizePlaybackPreferenceProvider(provider);
+
+            const requests = [];
+            const seenRequestIds = new Set();
+
+            for (const library of [queue, history]) {
+                if (!Array.isArray(library)) {
+                    continue;
+                }
+
+                for (const request of library) {
+                    if (!request || typeof request !== "object") {
+                        continue;
+                    }
+
+                    const requestProvider =
+                        normalizePlaybackPreferenceProvider(
+                            request.Provider
+                        );
+
+                    const requestId = String(
+                        request.Id || ""
+                    ).trim();
+
+                    if (
+                        requestProvider !== normalizedProvider ||
+                        !requestId ||
+                        seenRequestIds.has(requestId)
+                    ) {
+                        continue;
+                    }
+
+                    seenRequestIds.add(requestId);
+                    requests.push(request);
+                }
+            }
+
+            return requests;
+        }
+
+        function renderPlaybackPreferences() {
+            if (
+                playbackPreferencesActive &&
+                playbackPreferencesProvider
+            ) {
+                selectedPlaybackPreferencesProvider =
+                    playbackPreferencesProvider;
+            }
+
+            const providerConfig =
+                playbackPreferenceProviderConfig(
+                    selectedPlaybackPreferencesProvider
+                );
+
+            selectedPlaybackPreferencesProvider =
+                providerConfig.value;
+
+            if (
+                playbackPreferencesProviderSelect.value !==
+                selectedPlaybackPreferencesProvider
+            ) {
+                playbackPreferencesProviderSelect.value =
+                    selectedPlaybackPreferencesProvider;
+            }
+
+            const matchingRequests =
+                playbackPreferenceRequests(
+                    selectedPlaybackPreferencesProvider
+                );
+
+            const matchingRequestIds = new Set(
+                matchingRequests.map(
+                    (request) => String(request.Id || "").trim()
+                )
+            );
+
+            if (
+                playbackPreferencesActive &&
+                playbackPreferencesRequestId &&
+                playbackPreferencesProvider ===
+                selectedPlaybackPreferencesProvider
+            ) {
+                selectedPlaybackPreferencesRequestId =
+                    playbackPreferencesRequestId;
+            }
+
+            if (
+                !matchingRequestIds.has(
+                    selectedPlaybackPreferencesRequestId
+                )
+            ) {
+                selectedPlaybackPreferencesRequestId =
+                    matchingRequests.length > 0
+                        ? String(matchingRequests[0].Id || "").trim()
+                        : "";
+            }
+
+            const listSignature = JSON.stringify({
+                provider: selectedPlaybackPreferencesProvider,
+                empty: t("playbackPreferences.noMedia"),
+                requests: matchingRequests.map(
+                    (request) => [
+                        String(request.Id || "").trim(),
+                        requestDisplayTitle(request)
+                    ]
+                )
+            });
+
+            if (
+                listSignature !==
+                lastPlaybackPreferencesListSignature
+            ) {
+                playbackPreferencesRequestSelect.replaceChildren();
+
+                if (matchingRequests.length === 0) {
+                    const option = document.createElement("option");
+                    option.value = "";
+                    option.textContent = t(
+                        "playbackPreferences.noMedia"
+                    );
+
+                    playbackPreferencesRequestSelect.appendChild(
+                        option
+                    );
+                } else {
+                    for (const request of matchingRequests) {
+                        const option = document.createElement("option");
+                        option.value = String(
+                            request.Id || ""
+                        ).trim();
+                        option.textContent =
+                            requestDisplayTitle(request);
+
+                        playbackPreferencesRequestSelect.appendChild(
+                            option
+                        );
+                    }
+                }
+
+                lastPlaybackPreferencesListSignature =
+                    listSignature;
+            }
+
+            playbackPreferencesRequestSelect.value =
+                selectedPlaybackPreferencesRequestId;
+
+            playbackPreferencesProviderSelect.disabled =
+                playbackPreferencesActive;
+
+            playbackPreferencesRequestSelect.disabled =
+                playbackPreferencesActive ||
+                matchingRequests.length === 0;
+
+            playbackPreferencesInstructions.textContent = t(
+                providerConfig.instructionsKey
+            );
+
+            playbackPreferencesNoMedia.textContent = t(
+                "playbackPreferences.noMedia"
+            );
+            playbackPreferencesNoMedia.hidden =
+                matchingRequests.length > 0;
+
+            playbackPreferencesCurrentSafety.textContent = t(
+                "playbackPreferences.stopCurrent"
+            );
+            playbackPreferencesCurrentSafety.hidden = !current;
+
+            playbackPreferencesOpenButton.textContent = t(
+                "playbackPreferences.openPlayer"
+            );
+            playbackPreferencesInteractButton.textContent = t(
+                "playbackPreferences.openControls"
+            );
+            playbackPreferencesCloseButton.textContent = t(
+                "playbackPreferences.closePlayer"
+            );
+
+            playbackPreferencesOpenButton.disabled =
+                !streamerBotConnected ||
+                playbackPreferencesActive ||
+                !!current ||
+                !selectedPlaybackPreferencesRequestId;
+
+            playbackPreferencesInteractButton.disabled =
+                !streamerBotConnected ||
+                !playbackPreferencesActive;
+
+            playbackPreferencesCloseButton.disabled =
+                !streamerBotConnected ||
+                !playbackPreferencesActive;
+        }
+
+        function openPlaybackPreferences() {
+            if (
+                !streamerBotConnected ||
+                playbackPreferencesActive ||
+                current
+            ) {
+                return;
+            }
+
+            const selectedRequestExists =
+                playbackPreferenceRequests(
+                    selectedPlaybackPreferencesProvider
+                ).some(
+                    (request) =>
+                        String(request.Id || "").trim() ===
+                        selectedPlaybackPreferencesRequestId
+                );
+
+            if (!selectedRequestExists) {
+                renderPlaybackPreferences();
+                return;
+            }
+
+            playbackPreferencesActive = true;
+            playbackPreferencesProvider =
+                selectedPlaybackPreferencesProvider;
+            playbackPreferencesRequestId =
+                selectedPlaybackPreferencesRequestId;
+            renderPlaybackPreferences();
+
+            control(
+                "openpreferences",
+                selectedPlaybackPreferencesRequestId
+            );
+        }
+
+        function closePlaybackPreferences() {
+            if (
+                !streamerBotConnected ||
+                !playbackPreferencesActive
+            ) {
+                return;
+            }
+
+            playbackPreferencesActive = false;
+            playbackPreferencesProvider = "";
+            playbackPreferencesRequestId = "";
+            renderPlaybackPreferences();
+
+            control("closepreferences");
+        }
+
+        function shouldCollapseRequestTitle(title) {
+            return String(title || "").length > 110;
+        }
+
+        function createRequestMedia(request) {
+            const media = document.createElement("div");
+            media.className = "request-media";
+
+            if (request.ThumbnailUrl) {
+                const thumbnail = document.createElement("img");
+                thumbnail.className = "request-thumbnail";
+                thumbnail.src = request.ThumbnailUrl;
+                thumbnail.alt = "";
+                thumbnail.loading = "lazy";
+
+                media.appendChild(thumbnail);
+            }
+
+            const content = document.createElement("div");
+            content.className = "request-content";
+
+            const fullTitle =
+                requestDisplayTitle(
+                    request
+                );
+
+            const title = document.createElement("div");
+            title.className = "request-title";
+            title.textContent = fullTitle;
+
+            const requestKey =
+                String(
+                    request.Id ||
+                    request.Url ||
+                    request.OriginalUrl ||
+                    fullTitle
+                );
+
+            const titleCanCollapse =
+                shouldCollapseRequestTitle(
+                    fullTitle
+                );
+
+            const titleExpanded =
+                expandedRequestTitles.has(
+                    requestKey
+                );
+
+            if (
+                titleCanCollapse &&
+                !titleExpanded
+            ) {
+                title.classList.add(
+                    "collapsed"
+                );
+            }
+
+            content.appendChild(title);
+
+            if (titleCanCollapse) {
+                const titleToggle =
+                    document.createElement("button");
+
+                titleToggle.type =
+                    "button";
+
+                titleToggle.className =
+                    "request-title-toggle";
+
+                titleToggle.textContent =
+                    titleExpanded
+                        ? t("request.showLess")
+                        : t("request.showMore");
+
+                titleToggle.addEventListener(
+                    "click",
+                    () => {
+                        if (
+                            expandedRequestTitles.has(
+                                requestKey
+                            )
+                        ) {
+                            expandedRequestTitles.delete(
+                                requestKey
+                            );
+                        } else {
+                            expandedRequestTitles.add(
+                                requestKey
+                            );
+                        }
+
+                        lastRenderedListSignature =
+                            "";
+
+                        renderList();
+                    }
+                );
+
+                content.appendChild(
+                    titleToggle
+                );
+            }
+
+            if (request.Author || request.Creator) {
+                const author = document.createElement("div");
+                author.className = "request-author";
+
+                if (request.Author) {
+                    const broadcaster =
+                        document.createElement("span");
+
+                    broadcaster.textContent =
+                        request.Author;
+
+                    author.appendChild(
+                        broadcaster
+                    );
+                }
+
+                if (request.Creator) {
+                    const creator =
+                        document.createElement("span");
+
+                    creator.className =
+                        "request-creator";
+
+                    creator.textContent =
+                        (request.Author ? " · " : "") +
+                        t(
+                            "request.clippedBy",
+                            { creator: request.Creator }
+                        );
+
+                    author.appendChild(
+                        creator
+                    );
+                }
+
+                content.appendChild(author);
+            }
+
+            const metaRow = document.createElement("div");
+            metaRow.className = "request-meta-row";
+
+            const meta = document.createElement("div");
+            meta.className = "request-meta";
+            meta.textContent = [
+                providerLabel(request.Provider),
+                request.MediaType,
+                request.Category
+            ]
+                .filter(Boolean)
+                .join(" · ");
+
+            metaRow.appendChild(meta);
+
+            const durationSeconds =
+                requestDurationSeconds(request);
+
+            if (durationSeconds > 0) {
+                const duration = document.createElement("span");
+
+                duration.className =
+                    "duration-badge " +
+                    durationClass(durationSeconds);
+
+                duration.textContent =
+                    formatPlaybackTime(durationSeconds);
+
+                duration.title =
+                    durationTitle(durationSeconds);
+
+                metaRow.appendChild(duration);
+            }
+
+            content.appendChild(metaRow);
+            media.appendChild(content);
+
+            return {
+                media: media,
+                content: content,
+                meta: meta
+            };
+        }
+
+        function renderCurrent() {
+            const hasCurrent = !!current;
+            const obsControlsReady =
+                streamerBotConnected && obsTargetReady();
+
+            if (hasCurrent) {
+                if (current.Title) {
+                    currentUser.textContent = current.Title;
+
+                    currentUrl.textContent = [
+                        current.Author,
+                        current.Creator
+                            ? t(
+                                "request.clippedBy",
+                                { creator: current.Creator }
+                            )
+                            : "",
+                        current.Category,
+                        current.User
+                            ? t(
+                                "request.submittedBy",
+                                { user: current.User }
+                            )
+                            : ""
+                    ]
+                        .filter(Boolean)
+                        .join(" · ");
+                } else {
+                    currentUser.textContent =
+                        current.User ||
+                        t("request.unknownUser");
+                    currentUrl.textContent = current.Url || current.OriginalUrl || "";
+                }
+            } else {
+                currentUser.textContent = t("current.nothingLoaded");
+                currentUrl.textContent = "";
+            }
+
+            playerState.textContent = stateLabel(currentPlayerState);
+            playerState.className = "state-badge " + currentPlayerState;
+
+            visibilityButton.textContent = sourceVisible
+                ? t("controls.onStream")
+                : t("controls.showOnStream");
+            visibilityButton.className = sourceVisible
+                ? "stream-toggle visible"
+                : "stream-toggle hidden";
+
+            visibilityButton.disabled =
+                !obsControlsReady;
+
+            const audioOnlyUnsupported =
+                hasCurrent &&
+                currentProvider() === "twitch";
+
+            audioOnlyButton.textContent =
+                videoHidden
+                    ? t("controls.showVideo")
+                    : t("controls.audioOnly");
+
+            audioOnlyButton.className =
+                videoHidden
+                    ? "audio-only-toggle active"
+                    : "audio-only-toggle";
+
+            audioOnlyButton.disabled =
+                !streamerBotConnected ||
+                audioOnlyUnsupported;
+
+            audioOnlyButton.title =
+                audioOnlyUnsupported
+                    ? t("controls.audioOnlyUnsupportedTwitch")
+                    : videoHidden
+                        ? t("controls.audioOnlyActive")
+                        : t("controls.audioOnlyInactive");
+
+            const interactive =
+                currentSupportsInteractivePlayback();
+
+            const canTogglePlayback =
+                hasCurrent &&
+                interactive &&
+                (
+                    currentPlayerState === "playing" ||
+                    currentPlayerState === "paused"
+                );
+
+            const playbackPaused =
+                currentPlayerState === "paused";
+
+            pauseButton.textContent =
+                playbackPaused
+                    ? "▶"
+                    : "Ⅱ";
+
+            pauseButton.disabled =
+                !canTogglePlayback;
+
+            const pauseButtonLabel =
+                hasCurrent && !interactive
+                    ? t("controls.pauseUnsupported")
+                    : playbackPaused
+                        ? t("controls.resume")
+                        : t("controls.pause");
+
+            pauseButton.title =
+                pauseButtonLabel;
+
+            pauseButton.setAttribute(
+                "aria-label",
+                pauseButtonLabel
+            );
+
+            refreshButton.disabled =
+                !obsControlsReady || !hasCurrent;
+
+            projectorButton.textContent =
+                "⛶";
+
+            projectorButton.className =
+                projectorOpen
+                    ? "projector-toggle icon-control open"
+                    : "projector-toggle icon-control";
+
+            projectorButton.title =
+                projectorOpen
+                    ? t("controls.closeFullscreen")
+                    : t("controls.fullscreen");
+
+            projectorButton.setAttribute(
+                "aria-label",
+                projectorButton.title
+            );
+
+            projectorButton.disabled =
+                !obsControlsReady ||
+                (
+                    !hasCurrent &&
+                    !projectorOpen
+                );
+
+            browserButton.disabled = !hasCurrent;
+            copyUrlButton.disabled = !hasCurrent;
+            skipButton.disabled = !hasCurrent;
+            stopButton.disabled = !hasCurrent;
+
+            const muteControllable =
+                currentSupportsMuteControl();
+
+            muteButton.textContent =
+                currentMuted
+                    ? "🔇"
+                    : "🔊";
+
+            muteButton.disabled =
+                !hasCurrent ||
+                !muteControllable;
+
+            const muteButtonLabel =
+                hasCurrent &&
+                    !muteControllable
+                    ? t("controls.muteUnsupported")
+                    : currentMuted
+                        ? t("controls.unmute")
+                        : t("controls.mute");
+
+            muteButton.title =
+                muteButtonLabel;
+
+            muteButton.setAttribute(
+                "aria-label",
+                muteButtonLabel
+            );
+
+            const volumeControllable =
+                currentSupportsVolumeControl();
+
+            volumeSlider.disabled =
+                hasCurrent &&
+                !volumeControllable;
+
+            volumeSlider.title =
+                hasCurrent &&
+                    !volumeControllable
+                    ? t("controls.volumeUnsupported")
+                    : "";
+
+            if (document.activeElement !== volumeSlider) {
+                volumeSlider.value = String(currentVolume);
+            }
+
+            volumeValue.textContent =
+                Math.round(
+                    Number(
+                        volumeSlider.value ||
+                        currentVolume
+                    )
+                ) +
+                "%";
+
+            renderPlaybackProgress();
+        }
+
+        function renderQueue() {
+            requestList.innerHTML = "";
+
+            if (!queue.length) {
+                const empty = document.createElement("div");
+                empty.className = "empty";
+                empty.textContent = t("queue.empty");
+                requestList.appendChild(empty);
+                return;
+            }
+
+            queue.forEach((request, index) => {
+                const row = document.createElement("div");
+                row.className = "request";
+
+                const header = document.createElement("div");
+                header.className = "request-header";
+
+                const user = document.createElement("div");
+                user.className = "request-user";
+                user.textContent =
+                    "#" +
+                    (index + 1) +
+                    "  " +
+                    (request.User || t("request.unknownUser"));
+
+                header.appendChild(user);
+
+                const headerRight = document.createElement("div");
+                headerRight.className = "request-header-right";
+
+                if (current && current.Id === request.Id) {
+                    const badge = document.createElement("span");
+                    badge.className = "playing-badge";
+                    badge.textContent = t("request.playing");
+                    headerRight.appendChild(badge);
+                }
+
+                const reorderControls = document.createElement("div");
+                reorderControls.className = "reorder-controls";
+
+                reorderControls.appendChild(
+                    makeReorderButton(
+                        "↑",
+                        t("request.moveUp"),
+                        index === 0,
+                        () => reorderQueueOptimistically(request.Id, -1)
+                    )
+                );
+
+                reorderControls.appendChild(
+                    makeReorderButton(
+                        "↓",
+                        t("request.moveDown"),
+                        index === queue.length - 1,
+                        () => reorderQueueOptimistically(request.Id, 1)
+                    )
+                );
+
+                headerRight.appendChild(reorderControls);
+                header.appendChild(headerRight);
+
+                const requestMedia = createRequestMedia(request);
+
+                const actions = document.createElement("div");
+                actions.className = "request-actions";
+
+                actions.appendChild(makeButton(
+                    current && current.Id === request.Id
+                        ? t("request.playAgain")
+                        : t("request.play"),
+                    "primary",
+                    () => {
+                        holdOptimistic("current", 1500);
+                        holdOptimistic("playerState", 1500);
+
+                        current = request;
+                        currentPlayerState = "loading";
+                        telemetry = null;
+
+                        render();
+                        control("play", request.Id);
+                    }
+                ));
+
+                actions.appendChild(makeButton(
+                    t("request.done"),
+                    "done",
+                    () => {
+                        const isCurrent =
+                            current &&
+                            current.Id === request.Id;
+
+                        queue = queue.filter(
+                            (item) =>
+                                item &&
+                                item.Id !== request.Id
+                        );
+
+                        history.unshift(
+                            Object.assign(
+                                {},
+                                request,
+                                {
+                                    CompletedAt:
+                                        new Date().toISOString()
+                                }
+                            )
+                        );
+
+                        if (isCurrent) {
+                            holdOptimistic("current", 1500);
+                            holdOptimistic("playerState", 1500);
+
+                            current = null;
+                            currentPlayerState = "idle";
+                            telemetry = null;
+                        }
+
+                        render();
+                        control("done", request.Id);
+                    }
+                ));
+
+                actions.appendChild(makeButton(
+                    t("controls.openUrl"),
+                    "",
+                    () => control("browser", request.Id)
+                ));
+
+                actions.appendChild(
+                    makeCopyButton(request)
+                );
+
+                actions.appendChild(makeButton(
+                    t("request.remove"),
+                    "danger",
+                    () => {
+                        const isCurrent =
+                            current &&
+                            current.Id === request.Id;
+
+                        queue = queue.filter(
+                            (item) =>
+                                item &&
+                                item.Id !== request.Id
+                        );
+
+                        if (isCurrent) {
+                            holdOptimistic("current", 1500);
+                            holdOptimistic("playerState", 1500);
+
+                            current = null;
+                            currentPlayerState = "idle";
+                            telemetry = null;
+                        }
+
+                        render();
+                        control("remove", request.Id);
+                    }
+                ));
+
+                requestMedia.content.appendChild(actions);
+
+                row.appendChild(header);
+                row.appendChild(requestMedia.media);
+                requestList.appendChild(row);
+            });
+        }
+
+        function renderHistory() {
+            requestList.innerHTML = "";
+
+            if (!history.length) {
+                const empty = document.createElement("div");
+                empty.className = "empty";
+                empty.textContent = t("history.empty");
+                requestList.appendChild(empty);
+                return;
+            }
+
+            history.forEach((request) => {
+                const row = document.createElement("div");
+                row.className = "request";
+
+                const header = document.createElement("div");
+                header.className = "request-header";
+
+                const user = document.createElement("div");
+                user.className = "request-user";
+                user.textContent =
+                    request.User ||
+                    t("request.unknownUser");
+
+                header.appendChild(user);
+
+                if (current && current.Id === request.Id) {
+                    const badge = document.createElement("span");
+                    badge.className = "playing-badge";
+                    badge.textContent = t("request.playing");
+                    header.appendChild(badge);
+                }
+
+                const requestMedia = createRequestMedia(request);
+
+                const completed = formatDate(request.CompletedAt);
+
+                if (completed) {
+                    const existingMeta =
+                        requestMedia.meta.textContent;
+
+                    requestMedia.meta.textContent =
+                        [existingMeta, completed]
+                            .filter(Boolean)
+                            .join(" · ");
+                }
+
+                const actions = document.createElement("div");
+                actions.className = "request-actions";
+
+                actions.appendChild(makeButton(
+                    t("request.play"),
+                    "primary",
+                    () => {
+                        holdOptimistic("current", 1500);
+                        holdOptimistic("playerState", 1500);
+
+                        current = request;
+                        currentPlayerState = "loading";
+                        telemetry = null;
+
+                        render();
+                        control("play", request.Id);
+                    }
+                ));
+
+                actions.appendChild(makeButton(
+                    t("controls.openUrl"),
+                    "",
+                    () => control("browser", request.Id)
+                ));
+
+                actions.appendChild(
+                    makeCopyButton(request)
+                );
+
+                requestMedia.content.appendChild(actions);
+
+                row.appendChild(header);
+                row.appendChild(requestMedia.media);
+                requestList.appendChild(row);
+            });
+        }
+
+        function renderAutoPlayToggle() {
+            autoPlayToggle.classList.toggle(
+                "enabled",
+                autoPlayEnabled
+            );
+
+            autoPlayToggle.setAttribute(
+                "aria-checked",
+                autoPlayEnabled
+                    ? "true"
+                    : "false"
+            );
+
+            autoPlayToggle.title =
+                autoPlayEnabled
+                    ? t("autoplay.enabledTitle")
+                    : t("autoplay.disabledTitle");
+        }
+
+        function renderChrome() {
+            let knownQueueSeconds = 0;
+            let unknownQueueDurations = 0;
+
+            queue.forEach((request) => {
+                const seconds =
+                    requestDurationSeconds(request);
+
+                if (seconds > 0) {
+                    knownQueueSeconds += seconds;
+                } else {
+                    unknownQueueDurations++;
+                }
+            });
+
+            let queueSummary =
+                String(queue.length);
+
+            if (knownQueueSeconds > 0) {
+                queueSummary +=
+                    " · " +
+                    formatPlaybackTime(knownQueueSeconds);
+
+                if (unknownQueueDurations > 0) {
+                    queueSummary += "+";
+                }
+            }
+
+            queueCount.textContent = queueSummary;
+            historyCount.textContent = history.length;
+
+            queueTab.classList.toggle(
+                "active",
+                activeTab === "queue"
+            );
+
+            historyTab.classList.toggle(
+                "active",
+                activeTab === "history"
+            );
+
+            clearButton.textContent =
+                activeTab === "queue"
+                    ? t("queue.clear")
+                    : t("history.clear");
+
+            renderAutoPlayToggle();
+            renderCurrent();
+            renderPlaybackPreferences();
+        }
+
+        function renderList() {
+            if (activeTab === "queue") {
+                renderQueue();
+            } else {
+                renderHistory();
+            }
+        }
+
+        function render() {
+            renderChrome();
+            renderList();
+
+            lastRenderedListSignature =
+                getListSignature();
+        }
+
+        function applyLocalization() {
+            const helper = window.ReactPlayerI18n;
+
+            if (
+                helper &&
+                typeof helper.translateDocument === "function"
+            ) {
+                try {
+                    helper.translateDocument(document);
+                } catch (error) {
+                    // Dynamic rendering below still uses safe English fallbacks.
+                }
+            }
+
+            if (
+                helper &&
+                typeof helper.getLanguage === "function"
+            ) {
+                try {
+                    languageSelector.value = helper.getLanguage();
+                } catch (error) {
+                    languageSelector.value = "en";
+                }
+            } else {
+                languageSelector.value = "en";
+            }
+
+            renderConnectionStatus();
+            renderManualAddStatus();
+            renderManualAddButton();
+            renderObsSetup();
+            lastRenderedListSignature = "";
+            render();
+        }
+
+        function initializeLocalization() {
+            const helper = window.ReactPlayerI18n;
+
+            if (!helper) {
+                return;
+            }
+
+            if (typeof helper.onChange === "function") {
+                helper.onChange(applyLocalization);
+            }
+
+            applyLocalization();
+
+            if (typeof helper.init === "function") {
+                try {
+                    const initialization = helper.init();
+
+                    if (
+                        initialization &&
+                        typeof initialization.catch === "function"
+                    ) {
+                        initialization.catch(() => { });
+                    }
+                } catch (error) {
+                    // Streamer.bot startup is deliberately independent of i18n.
+                }
+            }
+        }
+
+        function beginObsSetupOperation() {
+            obsDetectionStatus = "detecting";
+            obsSetupOpen = true;
+            obsSetupStateInitialized = true;
+            renderObsSetup();
+            renderCurrent();
+        }
+
+        function detectObsSetup() {
+            if (
+                !streamerBotConnected ||
+                obsDetectionStatus === "detecting"
+            ) {
+                return;
+            }
+
+            beginObsSetupOperation();
+            control("detectobs");
+        }
+
+        function useSelectedObsTarget() {
+            if (
+                !streamerBotConnected ||
+                obsDetectionStatus === "detecting" ||
+                !selectedObsCandidateKey
+            ) {
+                return;
+            }
+
+            const selectedCandidate = obsCandidates.find(
+                (candidate) =>
+                    isObsPlacementCandidate(candidate) &&
+                    obsCandidateKey(candidate) ===
+                    selectedObsCandidateKey
+            );
+
+            if (!selectedCandidate) {
+                return;
+            }
+
+            beginObsSetupOperation();
+
+            control(
+                "setobstarget",
+                "",
+                {
+                    sourceName: selectedCandidate.SourceName,
+                    containerName: selectedCandidate.ContainerName,
+                    containerType: selectedCandidate.ContainerType,
+                    sceneItemId: selectedCandidate.SceneItemId
+                }
+            );
+        }
+
+        obsSetupToggleButton.addEventListener(
+            "click",
+            () => {
+                obsSetupOpen = !obsSetupOpen;
+                renderObsSetup();
+            }
+        );
+
+        obsSetupCloseButton.addEventListener(
+            "click",
+            () => {
+                obsSetupOpen = false;
+                renderObsSetup();
+                obsSetupToggleButton.focus();
+            }
+        );
+
+        obsSetupDetectButton.addEventListener(
+            "click",
+            detectObsSetup
+        );
+
+        obsSetupCandidateSelect.addEventListener(
+            "change",
+            () => {
+                selectedObsCandidateKey =
+                    obsSetupCandidateSelect.value;
+            }
+        );
+
+        obsSetupUseSelectedButton.addEventListener(
+            "click",
+            useSelectedObsTarget
+        );
+
+        playbackPreferencesProviderSelect.addEventListener(
+            "change",
+            () => {
+                selectedPlaybackPreferencesProvider =
+                    normalizePlaybackPreferenceProvider(
+                        playbackPreferencesProviderSelect.value
+                    ) || "youtube";
+                selectedPlaybackPreferencesRequestId = "";
+                renderPlaybackPreferences();
+            }
+        );
+
+        playbackPreferencesRequestSelect.addEventListener(
+            "change",
+            () => {
+                selectedPlaybackPreferencesRequestId = String(
+                    playbackPreferencesRequestSelect.value || ""
+                ).trim();
+                renderPlaybackPreferences();
+            }
+        );
+
+        playbackPreferencesOpenButton.addEventListener(
+            "click",
+            openPlaybackPreferences
+        );
+
+        playbackPreferencesInteractButton.addEventListener(
+            "click",
+            () => {
+                if (
+                    streamerBotConnected &&
+                    playbackPreferencesActive
+                ) {
+                    control("interact");
+                }
+            }
+        );
+
+        playbackPreferencesCloseButton.addEventListener(
+            "click",
+            closePlaybackPreferences
+        );
+
+        autoPlayToggle.addEventListener(
+            "click",
+            toggleAutoPlayOptimistically
+        );
+
+        manualAddButton.addEventListener(
+            "click",
+            () => submitManualRequest()
+        );
+
+        manualUrlInput.addEventListener(
+            "keydown",
+            (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitManualRequest();
+                }
+            }
+        );
+
+        languageSelector.addEventListener(
+            "change",
+            () => {
+                const helper = window.ReactPlayerI18n;
+
+                if (
+                    !helper ||
+                    typeof helper.setLanguage !== "function"
+                ) {
+                    languageSelector.value = "en";
+                    return;
+                }
+
+                try {
+                    const languageChange = helper.setLanguage(
+                        languageSelector.value
+                    );
+
+                    if (
+                        languageChange &&
+                        typeof languageChange.catch === "function"
+                    ) {
+                        languageChange.catch(() => {
+                            applyLocalization();
+                        });
+                    }
+                } catch (error) {
+                    applyLocalization();
+                }
+            }
+        );
+
+        diagnosticsRetryButton.addEventListener(
+            "click",
+            () => window.location.reload()
+        );
+
+        diagnosticsDismissButton.addEventListener(
+            "click",
+            () => {
+                diagnosticsDismissed = true;
+                hideConnectionDiagnostics();
+            }
+        );
+
+        visibilityButton.addEventListener("click", toggleVisibilityOptimistically);
+        audioOnlyButton.addEventListener("click", toggleVideoOptimistically);
+        pauseButton.addEventListener("click", togglePauseOptimistically);
+        muteButton.addEventListener("click", toggleMuteOptimistically);
+        refreshButton.addEventListener("click", () => {
+            if (
+                !streamerBotConnected ||
+                !obsTargetReady() ||
+                !current
+            ) {
+                return;
+            }
+
+            control("refresh");
+        });
+        projectorButton.addEventListener("click", toggleProjectorOptimistically);
+        browserButton.addEventListener("click", () => current && control("browser", current.Id));
+        copyUrlButton.addEventListener("click", () => current && copyRequestUrl(current, copyUrlButton));
+        skipButton.addEventListener("click", skipCurrentOptimistically);
+        stopButton.addEventListener("click", () => {
+            if (!current) {
+                return;
+            }
+
+            const stoppingId = current.Id;
+
+            holdOptimistic("current", 1500);
+            holdOptimistic("playerState", 1500);
+
+            current = null;
+            currentPlayerState = "idle";
+            telemetry = null;
+            render();
+
+            control("stop", stoppingId);
+        });
+
+        function toggleAutoPlayOptimistically() {
+            if (!streamerBotConnected) {
+                return;
+            }
+
+            autoPlayEnabled =
+                !autoPlayEnabled;
+
+            renderAutoPlayToggle();
+
+            control(
+                "toggleautoplay"
+            );
+        }
+
+        function skipCurrentOptimistically() {
+            if (
+                !streamerBotConnected ||
+                !current
+            ) {
+                return;
+            }
+
+            const finished =
+                current;
+
+            const queuedIndex =
+                queue.findIndex(
+                    (request) =>
+                        request &&
+                        request.Id === finished.Id
+                );
+
+            if (queuedIndex >= 0) {
+                const completed =
+                    Object.assign(
+                        {},
+                        queue[queuedIndex],
+                        {
+                            CompletedAt:
+                                new Date().toISOString()
+                        }
+                    );
+
+                queue.splice(
+                    queuedIndex,
+                    1
+                );
+
+                history.unshift(
+                    completed
+                );
+            }
+
+            const nextRequest =
+                queue.length > 0
+                    ? queue[0]
+                    : null;
+
+            holdOptimistic(
+                "current",
+                1500
+            );
+
+            holdOptimistic(
+                "playerState",
+                1500
+            );
+
+            telemetry = null;
+
+            if (nextRequest) {
+                current =
+                    nextRequest;
+
+                currentPlayerState =
+                    "loading";
+            } else {
+                current = null;
+                currentPlayerState = "idle";
+            }
+
+            render();
+
+            control(
+                "skip"
+            );
+        }
+
+        function toggleMuteOptimistically() {
+            if (
+                !streamerBotConnected ||
+                !current ||
+                !currentSupportsMuteControl()
+            ) {
+                return;
+            }
+
+            holdOptimistic(
+                "muted",
+                2500
+            );
+
+            currentMuted =
+                !currentMuted;
+
+            renderCurrent();
+
+            control(
+                currentMuted
+                    ? "mute"
+                    : "unmute"
+            );
+        }
+
+        function toggleVideoOptimistically() {
+            if (
+                !streamerBotConnected ||
+                (
+                    current &&
+                    currentProvider() === "twitch"
+                )
+            ) {
+                return;
+            }
+
+            holdOptimistic(
+                "videoHidden",
+                2000
+            );
+
+            videoHidden =
+                !videoHidden;
+
+            renderCurrent();
+
+            control(
+                videoHidden
+                    ? "hidevideo"
+                    : "showvideo"
+            );
+        }
+
+        function toggleVisibilityOptimistically() {
+            if (
+                !streamerBotConnected ||
+                !obsTargetReady()
+            ) {
+                return;
+            }
+
+            holdOptimistic(
+                "visibility",
+                1500
+            );
+
+            sourceVisible = !sourceVisible;
+            renderCurrent();
+
+            control("togglevisibility");
+        }
+
+        function togglePauseOptimistically() {
+            if (
+                !streamerBotConnected ||
+                !current ||
+                !currentSupportsInteractivePlayback() ||
+                (
+                    currentPlayerState !== "playing" &&
+                    currentPlayerState !== "paused"
+                )
+            ) {
+                return;
+            }
+
+            holdOptimistic(
+                "playerState",
+                1500
+            );
+
+            currentPlayerState =
+                currentPlayerState === "paused"
+                    ? "playing"
+                    : "paused";
+
+            renderCurrent();
+
+            control("pause");
+        }
+
+        function toggleProjectorOptimistically() {
+            if (
+                !streamerBotConnected ||
+                !obsTargetReady() ||
+                (!current && !projectorOpen)
+            ) {
+                return;
+            }
+
+            holdOptimistic(
+                "projector",
+                2000
+            );
+
+            projectorOpen = !projectorOpen;
+            renderCurrent();
+
+            control("toggleprojector");
+        }
+
+        function seekRelativeFromDock(delta) {
+            if (!current) {
+                return;
+            }
+
+            const data = normalizedTelemetry();
+
+            if (data.duration <= 0) {
+                return;
+            }
+
+            pendingSeekTarget = Math.max(
+                0,
+                Math.min(
+                    data.duration,
+                    data.currentTime + delta
+                )
+            );
+
+            pendingSeekStartedAt = Date.now();
+
+            control(
+                "seekrelative",
+                "",
+                { delta: delta }
+            );
+
+            renderPlaybackProgress();
+        }
+
+        back10Button.addEventListener("click", () => {
+            seekRelativeFromDock(-10);
+        });
+
+        forward10Button.addEventListener("click", () => {
+            seekRelativeFromDock(10);
+        });
+
+        dockSeekSlider.addEventListener("pointerdown", () => {
+            dockSeeking = true;
+        });
+
+        dockSeekSlider.addEventListener("input", () => {
+            dockSeeking = true;
+            renderPlaybackProgress();
+        });
+
+        dockSeekSlider.addEventListener("change", () => {
+            const target = Math.max(
+                0,
+                Math.round(Number(dockSeekSlider.value || 0))
+            );
+
+            pendingSeekTarget = target;
+            pendingSeekStartedAt = Date.now();
+            dockSeeking = false;
+
+            control(
+                "seek",
+                "",
+                { seconds: target }
+            );
+
+            renderPlaybackProgress();
+        });
+
+        dockSeekSlider.addEventListener("pointercancel", () => {
+            dockSeeking = false;
+            renderPlaybackProgress();
+        });
+
+        volumeSlider.addEventListener("input", () => {
+            currentVolume = Number(volumeSlider.value || 100);
+            volumeValue.textContent = volumeSlider.value + "%";
+
+            if (volumeDebounceTimer) {
+                clearTimeout(volumeDebounceTimer);
+            }
+
+            volumeDebounceTimer = setTimeout(() => {
+                control("volume", "", { volume: currentVolume });
+            }, 120);
+        });
+
+        volumeSlider.addEventListener("change", () => {
+            if (volumeDebounceTimer) {
+                clearTimeout(volumeDebounceTimer);
+                volumeDebounceTimer = null;
+            }
+
+            currentVolume = Number(volumeSlider.value || 100);
+            control("volume", "", { volume: currentVolume });
+        });
+
+        queueTab.addEventListener("click", () => {
+            activeTab = "queue";
+            render();
+        });
+
+        historyTab.addEventListener("click", () => {
+            activeTab = "history";
+            render();
+        });
+
+        clearButton.addEventListener("click", () => {
+            if (activeTab === "queue") {
+                if (confirm(t("confirm.clearQueue"))) {
+                    queue =
+                        current
+                            ? queue.filter(
+                                (request) =>
+                                    request &&
+                                    request.Id === current.Id
+                            )
+                            : [];
+
+                    render();
+                    control("clearqueue");
+                }
+            } else {
+                if (confirm(t("confirm.clearHistory"))) {
+                    history = [];
+                    render();
+                    control("clearhistory");
+                }
+            }
+        });
+
+        initializeLocalization();
+        startInitialConnectionDiagnosticTimer();
+
+        // Playback state stays responsive.
+        setInterval(loadPlaybackState, 250);
+
+        // Queue/history changes are event-driven in normal use.
+        // This slower fallback catches external/manual edits and missed events.
+        setInterval(loadLibraryState, 3000);
+
+        // Preference mode is temporary and may be closed by normal playback.
+        setInterval(loadPlaybackPreferencesState, 1000);
+
+        // OBS setup changes rarely, so keep its seven persistent globals on the
+        // slower fallback rather than adding them to the responsive playback poll.
+        setInterval(loadObsSetupState, 3000);
+
+        // OBS visibility/projector state is authoritative and can be changed
+        // outside this dock, so reconcile against OBS periodically.
+        setInterval(syncVisibility, 1500);
+    </script>
+</body>
+
+</html>

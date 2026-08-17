@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="React Player is a free media request player for OBS powered by Streamer.bot, with support for YouTube videos and Shorts, Twitch Clips, Medal and TikTok.">
+    <title>React Player</title>
+    <script src="/version.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+
+        :root {
+            color-scheme: dark;
+            --void: #0b0d10;
+            --deck: #111419;
+            --deck-2: #15191f;
+            --line: #2b323c;
+            --line-hot: #526171;
+            --text: #ece9e1;
+            --muted: #a7aeb7;
+            --soft: #6f7985;
+            --violet: #a66cff;
+            --violet-deep: #5e2ba4;
+            --cyan: #65d7ff;
+            --cyan-dim: #2e7187;
+            --amber: #ffcc63;
+            --red: #ff6969;
+            --green: #6ed58e;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            position: relative;
+            margin: 0;
+            min-height: 100vh;
+            background-color: var(--void);
+            background-image:
+                linear-gradient(rgba(101, 215, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(166, 108, 255, 0.02) 1px, transparent 1px);
+            background-size: 32px 32px;
+            color: var(--text);
+            font-family: Arial, Verdana, sans-serif;
+            font-size: 15px;
+            line-height: 1.52;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 99;
+            pointer-events: none;
+            opacity: 0.08;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(255,255,255,0.08) 0,
+                rgba(255,255,255,0.08) 1px,
+                transparent 1px,
+                transparent 4px
+            );
+        }
+
+        button, a { font: inherit; }
+        button:focus-visible, a:focus-visible, summary:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 3px;
+        }
+
+        .shell {
+            width: min(1180px, calc(100% - 38px));
+            margin: 0 auto;
+            padding: 18px 0 28px;
+        }
+
+        .site-header {
+            position: relative;
+            border: 1px solid var(--line-hot);
+            background: linear-gradient(180deg, rgba(21,25,31,.98), rgba(13,16,20,.98));
+            box-shadow:
+                0 18px 45px rgba(0,0,0,.35),
+                inset 0 0 0 1px rgba(255,255,255,.025);
+        }
+
+        .site-header::before,
+        .site-header::after {
+            content: "";
+            position: absolute;
+            width: 13px;
+            height: 13px;
+            pointer-events: none;
+        }
+
+        .site-header::before {
+            top: -1px;
+            left: -1px;
+            border-top: 3px solid var(--cyan);
+            border-left: 3px solid var(--cyan);
+        }
+
+        .site-header::after {
+            right: -1px;
+            bottom: -1px;
+            border-right: 3px solid var(--violet);
+            border-bottom: 3px solid var(--violet);
+        }
+
+        .retro-rail {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            min-height: 31px;
+            padding: 6px 13px;
+            border-bottom: 1px solid var(--line);
+            background: #0c0f13;
+            color: var(--cyan);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .11em;
+        }
+
+        .rail-services { color: var(--soft); letter-spacing: .05em; }
+
+        .retro-main-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(285px, .6fr);
+            gap: 34px;
+            align-items: end;
+            padding: 24px 25px 20px;
+        }
+
+        .product-line { display: flex; align-items: baseline; gap: 12px; }
+
+        h1, h2, h3 { line-height: 1.15; }
+        h1 {
+            margin: 0;
+            font-size: clamp(36px, 5vw, 56px);
+            letter-spacing: -.04em;
+            text-transform: uppercase;
+        }
+        h2 { margin: 0 0 7px; font-size: 25px; letter-spacing: -.02em; }
+        h3 { margin: 0 0 5px; font-size: 17px; }
+        p { max-width: 74ch; margin: 6px 0 0; color: var(--muted); }
+        strong { color: var(--text); }
+
+        .product-version {
+            padding: 2px 6px;
+            border: 1px solid var(--line-hot);
+            background: #0d1014;
+            color: var(--amber);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .tagline {
+            margin: 11px 0 0;
+            color: var(--text);
+            font-size: 18px;
+            line-height: 1.42;
+        }
+        .tagline span { display: block; }
+
+        .retro-control-cluster {
+            display: grid;
+            gap: 12px;
+            justify-items: start;
+        }
+
+        .requirement-warning {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: #ffc3c3;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .warning-lamp {
+            width: 9px;
+            height: 9px;
+            border: 1px solid #ff9a9a;
+            border-radius: 50%;
+            background: var(--red);
+            box-shadow: 0 0 10px rgba(255,105,105,.6);
+        }
+
+        .requirement-warning a { color: #ffd0d0; text-underline-offset: 2px; }
+
+
+        .setup-note a {
+            color: var(--cyan);
+            font-weight: 700;
+            text-underline-offset: 2px;
+        }
+
+        .feature-highlights {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            border: 1px solid var(--line-hot);
+            background: #0d1014;
+        }
+
+        .feature-highlight {
+            position: relative;
+            min-width: 0;
+            padding: 38px 15px 14px;
+            border-right: 1px solid var(--line-hot);
+        }
+
+        .feature-highlight:last-child {
+            border-right: 0;
+        }
+
+        .feature-index {
+            position: absolute;
+            top: 10px;
+            left: 14px;
+            color: var(--cyan);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .feature-highlight h3 {
+            margin: 0 0 5px;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        .feature-highlight p {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .feature-ledger {
+            margin-top: 11px;
+            border-top: 1px solid var(--line-hot);
+        }
+
+        .feature-row {
+            display: grid;
+            grid-template-columns: 155px minmax(0, 1fr);
+            gap: 18px;
+            padding: 10px 3px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .feature-row-label {
+            color: var(--cyan);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .08em;
+        }
+
+        .feature-row-copy {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .feature-row-copy code {
+            display: inline;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: var(--cyan);
+            font-size: inherit;
+        }
+
+        .features-actions {
+            margin-top: 14px;
+        }
+
+        .header-actions, .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .button, .copy-button {
+            --cut: 7px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 8px 14px;
+            border: 1px solid var(--line-hot);
+            border-radius: 0;
+            clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+            background: #1c2229;
+            color: var(--text);
+            cursor: pointer;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .035em;
+            text-decoration: none;
+        }
+        .button:hover, .copy-button:hover { border-color: var(--cyan); color: #fff; background: #202a33; }
+        .button.primary { border-color: var(--violet); background: #51238b; color: #fff; }
+        .button.primary:hover { background: #6930aa; }
+
+        .retro-tabs {
+            display: flex;
+            align-items: stretch;
+            border-top: 1px solid var(--line);
+            background: #0d1014;
+        }
+
+        .tab-button {
+            min-height: 43px;
+            padding: 8px 18px;
+            border: 0;
+            border-right: 1px solid var(--line);
+            background: transparent;
+            color: var(--soft);
+            cursor: pointer;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .07em;
+        }
+        .tab-button span { margin-right: 7px; color: #4f5964; }
+        .tab-button:hover { color: var(--text); background: #12171c; }
+        .tab-button[aria-selected="true"] {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(166,108,255,.20), rgba(101,215,255,.06));
+            box-shadow: inset 0 -2px 0 var(--violet);
+        }
+        .tab-button[aria-selected="true"] span { color: var(--cyan); }
+
+        .content-panel {
+            position: relative;
+            margin-top: 13px;
+            padding: 23px 24px 10px;
+            border-left: 1px solid var(--line);
+            border-right: 1px solid var(--line);
+            background: rgba(11,13,16,.68);
+        }
+        .tab-panel[hidden] { display: none; }
+        .section-intro { margin-bottom: 15px; }
+        .section-intro h2::before { content: "// "; color: var(--violet); font-family: Consolas, "Courier New", monospace; }
+
+        .request-flow {
+            counter-reset: request-step;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            border: 1px solid var(--line-hot);
+            background: #0d1014;
+        }
+
+        .request-flow-item {
+            counter-increment: request-step;
+            position: relative;
+            min-width: 0;
+            padding: 44px 16px 17px;
+            border-right: 1px solid var(--line-hot);
+        }
+        .request-flow-item:last-child { border-right: 0; }
+
+        .request-flow-item::before {
+            content: "0" counter(request-step);
+            position: absolute;
+            top: 10px;
+            left: 14px;
+            color: var(--cyan);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .request-flow-item:not(:last-child)::after {
+            content: ">";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: var(--violet);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .flow-copy h3 { margin-top: 0; text-transform: uppercase; font-size: 15px; letter-spacing: .02em; }
+        .flow-copy p { margin-top: 7px; font-size: 13px; line-height: 1.52; }
+        .overview-actions { margin-top: 13px; }
+
+        .setup-note {
+            display: grid;
+            grid-template-columns: auto minmax(0,1fr);
+            gap: 11px;
+            margin: 7px 0 13px;
+            padding: 10px 12px;
+            border: 1px solid #51326d;
+            background: rgba(82,35,139,.16);
+            color: #d9c8ef;
+        }
+        .setup-note::before { content: "NOTE"; color: var(--violet); font-family: Consolas, "Courier New", monospace; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+        .setup-note p { grid-column: 2; margin: 0; color: inherit; }
+        .setup-note p + p { margin-top: 2px; }
+
+
+        .setup-heading-row {
+            margin-bottom: 10px;
+        }
+
+        .setup-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            background: #0d1014;
+        }
+
+        .setup-tab-button {
+            min-height: 36px;
+            padding: 7px 13px;
+            border: 0;
+            border-right: 1px solid var(--line);
+            background: transparent;
+            color: var(--soft);
+            cursor: pointer;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .055em;
+        }
+
+        .setup-tab-button:hover {
+            color: var(--text);
+            background: #12171c;
+        }
+
+        .setup-tab-button[aria-selected="true"] {
+            color: #fff;
+            background: #17121f;
+            box-shadow: inset 0 -2px 0 var(--violet);
+        }
+
+        .setup-subpanel[hidden] {
+            display: none;
+        }
+
+        .setup-branch-note {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            border-left: 2px solid var(--amber);
+            background: rgba(221,169,48,.06);
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .setup-branch-note > span,
+        .guide-label {
+            color: var(--amber);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .08em;
+        }
+
+        .setup-branch-note button {
+            border: 0;
+            padding: 0;
+            background: transparent;
+            color: var(--cyan);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .compact-buttons {
+            margin-top: 0;
+            margin-bottom: 7px;
+        }
+
+        .setup-finished {
+            margin-top: 12px;
+            padding: 9px 11px;
+            border: 1px solid #27583a;
+            background: rgba(45,116,69,.12);
+            color: #bfe8cb;
+            font-size: 13px;
+        }
+
+        .setup-finished strong {
+            margin-right: 8px;
+            color: var(--green);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            letter-spacing: .06em;
+        }
+
+        .guide-section {
+            padding: 14px 3px 15px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .guide-section:first-child {
+            border-top: 1px solid var(--line);
+        }
+
+        .guide-section h3,
+        .extra-guide h3 {
+            margin: 4px 0 3px;
+        }
+
+        .guide-section p,
+        .extra-guide p {
+            margin-top: 3px;
+            font-size: 13px;
+        }
+
+        .guide-section ol {
+            margin: 8px 0 0;
+            padding-left: 21px;
+        }
+
+        .connection-values {
+            margin: 9px 0 0;
+            padding: 0;
+            list-style: none;
+            border-top: 1px solid var(--line);
+        }
+
+        .connection-values li {
+            display: grid;
+            grid-template-columns: 150px minmax(0, 1fr);
+            gap: 15px;
+            padding: 6px 3px;
+            border-bottom: 1px solid var(--line);
+            font-size: 13px;
+        }
+
+        .connection-values span {
+            color: var(--cyan);
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        .extras-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            border-top: 1px solid var(--line-hot);
+            border-left: 1px solid var(--line-hot);
+        }
+
+        .extra-guide {
+            min-width: 0;
+            padding: 13px 14px;
+            border-right: 1px solid var(--line-hot);
+            border-bottom: 1px solid var(--line-hot);
+            background: #0d1014;
+        }
+
+        .extra-guide .command-list {
+            margin-top: 5px;
+        }
+
+        .help-list {
+            border-top: 1px solid var(--line);
+        }
+
+        .steps { border-top: 1px solid var(--line-hot); }
+        .step {
+            position: relative;
+            display: grid;
+            grid-template-columns: 245px minmax(0, 1fr);
+            gap: 28px;
+            padding: 15px 14px 15px 0;
+            border-bottom: 1px solid var(--line);
+        }
+        .step::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 2px;
+            background: transparent;
+        }
+        .step:hover::before { background: var(--cyan-dim); }
+
+        .step-heading {
+            display: grid;
+            grid-template-columns: 39px minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            padding-left: 12px;
+        }
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 27px;
+            border: 1px solid var(--violet-deep);
+            background: #1a1024;
+            color: var(--violet);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .step-heading h3 { margin: 3px 0 0; }
+        .step-body > :first-child { margin-top: 0; }
+        .step ol, .step ul, .optional-item ul, .changelog-entry ul {
+            max-width: 78ch;
+            margin: 8px 0 0;
+            padding-left: 21px;
+        }
+        li + li { margin-top: 4px; }
+
+        .done-when {
+            margin-top: 10px;
+            padding: 7px 10px;
+            border: 1px solid #27583a;
+            background: rgba(45,116,69,.14);
+            color: #bfe8cb;
+            font-size: 13px;
+        }
+        .done-when strong::before { content: "✓ "; color: var(--green); }
+        .skip-if { margin: 0 0 7px; color: var(--amber); font-size: 13px; font-weight: 700; }
+
+        .code-row {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) auto;
+            gap: 7px;
+            align-items: center;
+            margin-top: 8px;
+        }
+        code {
+            display: block;
+            overflow-wrap: anywhere;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            background: #07090b;
+            color: #bfeaff;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .copy-button { min-height: 34px; font-size: 11px; }
+        .copy-button.copied { border-color: #32784b; background: #173923; color: #c7f3d4; }
+
+        details { padding: 10px 2px; border-bottom: 1px solid var(--line); }
+        summary { cursor: pointer; color: var(--text); font-weight: 700; }
+        summary::marker { color: var(--violet); }
+        details p, details ul { font-size: 13px; }
+
+        .changelog-entry {
+            position: relative;
+            margin-top: 10px;
+            padding: 14px 14px 14px 19px;
+            border: 1px solid var(--line-hot);
+            background: #0d1014;
+        }
+        .changelog-entry::before {
+            content: "RELEASE LOG";
+            position: absolute;
+            top: -8px;
+            right: 10px;
+            padding: 0 7px;
+            background: var(--void);
+            color: var(--cyan);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 10px;
+            letter-spacing: .08em;
+        }
+
+        .footer {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) auto;
+            gap: 18px;
+            align-items: center;
+            margin-top: 13px;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            background: #0c0f13;
+            color: var(--soft);
+            font-size: 12px;
+        }
+        .support-card { display: flex; align-items: center; gap: 15px; min-width: 0; }
+        .support-card strong { color: var(--text); white-space: nowrap; }
+        .support-card p { margin: 0; font-size: 12px; }
+        .donate-form { flex: 0 0 auto; }
+        .donate-button {
+            min-width: 92px;
+            height: 31px;
+            border: 1px solid #8d6a22;
+            border-radius: 0;
+            background: #dca930;
+            color: #0a0b0c;
+            cursor: pointer;
+            font: inherit;
+            font-family: Consolas, "Courier New", monospace;
+            font-weight: 900;
+        }
+        .donate-button:hover { background: #ffc94f; }
+        .footer-meta { text-align: right; }
+        .footer-meta p { max-width: none; margin: 0; color: var(--soft); font-size: 11px; }
+        .footer-meta p + p { margin-top: 2px; }
+        .footer a { color: #c59dff; font-weight: 700; }
+
+        @media (max-width: 900px) {
+            .retro-main-head { grid-template-columns: 1fr; gap: 15px; }
+            .request-flow { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .feature-highlights { grid-template-columns: 1fr; }
+            .feature-highlight { border-right: 0; border-bottom: 1px solid var(--line-hot); }
+            .feature-highlight:last-child { border-bottom: 0; }
+            .extras-grid { grid-template-columns: 1fr; }
+            .request-flow-item:nth-child(2) { border-right: 0; }
+            .request-flow-item:nth-child(-n+2) { border-bottom: 1px solid var(--line-hot); }
+            .step { grid-template-columns: 1fr; gap: 9px; padding-right: 0; }
+            .footer { grid-template-columns: 1fr; }
+            .footer-meta { text-align: left; }
+        }
+
+        @media (max-width: 600px) {
+            .shell { width: min(100% - 18px, 1180px); padding-top: 9px; }
+            .retro-rail { align-items: flex-start; flex-direction: column; gap: 2px; }
+            .retro-main-head { padding: 18px 15px 16px; }
+            h1 { font-size: 34px; }
+            .retro-tabs { overflow-x: auto; }
+            .tab-button { flex: 1 0 auto; padding-inline: 12px; }
+            .content-panel { padding: 18px 14px 8px; }
+            .request-flow { grid-template-columns: 1fr; }
+            .feature-row { grid-template-columns: 1fr; gap: 3px; }
+            .setup-tabs { overflow-x: auto; flex-wrap: nowrap; }
+            .setup-tab-button { flex: 1 0 auto; }
+            .connection-values li { grid-template-columns: 1fr auto; }
+            .request-flow-item,
+            .request-flow-item:nth-child(2) { border-right: 0; border-bottom: 1px solid var(--line-hot); }
+            .request-flow-item:last-child { border-bottom: 0; }
+            .request-flow-item:not(:last-child)::after { content: "v"; top: auto; right: 12px; bottom: 8px; }
+            .header-actions, .button-row { display: grid; width: 100%; grid-template-columns: 1fr; }
+            .button { width: 100%; }
+            .code-row { grid-template-columns: 1fr; }
+            .copy-button { width: 100%; }
+            .support-card { align-items: flex-start; flex-direction: column; gap: 8px; }
+            .support-card strong { white-space: normal; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            body::before { display: none; }
+        }
+    </style>
+</head>
+<body>
+<main class="shell">
+    <header class="site-header retro-header">
+        <div class="retro-rail">
+            <span>OBS MEDIA REQUESTS</span>
+            <span class="rail-services">YOUTUBE + SHORTS / TWITCH CLIPS / MEDAL / TIKTOK</span>
+        </div>
+
+        <div class="retro-main-head">
+            <div>
+                <div class="product-line">
+                    <h1>React Player</h1>
+                    <span class="product-version" data-current-version>v1.0.0</span>
+                </div>
+                <p class="tagline">
+                    <span>Media requests for OBS, powered by Streamer.bot.</span>
+                    <span>Turn links from chat and stream events into a queue you control.</span>
+                </p>
+            </div>
+
+            <div class="retro-control-cluster">
+                <div class="requirement-warning">
+                    <span class="warning-lamp" aria-hidden="true"></span>
+                    <span><a href="https://streamer.bot/" target="_blank" rel="noopener noreferrer">STREAMER.BOT</a> REQUIRED</span>
+                </div>
+<div class="header-actions">
+                    <button class="button primary" type="button" data-open-tab="setup">SETUP</button>
+                    <a class="button" href="/downloads/React-Player-Import.txt" download>DOWNLOAD</a>
+                </div>
+            </div>
+        </div>
+
+        <nav class="tabs retro-tabs" role="tablist" aria-label="React Player pages">
+            <button class="tab-button" id="tab-overview" type="button" role="tab" aria-selected="true" aria-controls="panel-overview" data-tab="overview"><span>01</span> OVERVIEW</button>
+            <button class="tab-button" id="tab-features" type="button" role="tab" aria-selected="false" aria-controls="panel-features" data-tab="features"><span>02</span> FEATURES</button>
+            <button class="tab-button" id="tab-setup" type="button" role="tab" aria-selected="false" aria-controls="panel-setup" data-tab="setup"><span>03</span> SETUP</button>
+            <button class="tab-button" id="tab-changelog" type="button" role="tab" aria-selected="false" aria-controls="panel-changelog" data-tab="changelog"><span>04</span> CHANGELOG</button>
+        </nav>
+    </header>
+
+
+    <section class="content-panel">
+        <div class="tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+            <div class="section-intro">
+                <h2>How React Player works</h2>
+                <p>
+                    React Player lets people watching your stream send supported video links.
+                    Requests are added to a queue, and you or your moderators decide what plays in OBS.
+                </p>
+            </div>
+
+            <ol class="request-flow">
+                <li class="request-flow-item">
+                    <div class="flow-copy">
+                        <h3>Link sent</h3>
+                        <p>A viewer sends a link through chat or another Streamer.bot event.</p>
+                    </div>
+                </li>
+
+                <li class="request-flow-item">
+                    <div class="flow-copy">
+                        <h3>Link checked</h3>
+                        <p>React Player pulls out the first supported link and checks it.</p>
+                    </div>
+                </li>
+
+                <li class="request-flow-item">
+                    <div class="flow-copy">
+                        <h3>Added to queue</h3>
+                        <p>Valid requests wait in the queue. Autoplay is optional.</p>
+                    </div>
+                </li>
+
+                <li class="request-flow-item">
+                    <div class="flow-copy">
+                        <h3>You play it</h3>
+                        <p>Control requests from the OBS dock. Moderators can help too.</p>
+                    </div>
+                </li>
+            </ol>
+
+            <div class="button-row overview-actions">
+                <button class="button primary" type="button" data-open-tab="setup">START SETUP</button>
+                <button class="button" type="button" data-open-tab="features">VIEW FEATURES</button>
+            </div>
+        </div>
+
+        <div class="tab-panel" id="panel-features" role="tabpanel" aria-labelledby="tab-features" hidden>
+            <div class="section-intro">
+                <h2>Features</h2>
+            </div>
+
+            <div class="feature-highlights">
+                <section class="feature-highlight">
+                    <span class="feature-index">01</span>
+                    <h3>Chat Scanner</h3>
+                    <p>Find supported links inside normal Twitch, Kick and YouTube chat messages.</p>
+                </section>
+
+                <section class="feature-highlight">
+                    <span class="feature-index">02</span>
+                    <h3>StreamElements Tips</h3>
+                    <p>Turn supported links inside StreamElements tip messages into requests.</p>
+                </section>
+
+                <section class="feature-highlight">
+                    <span class="feature-index">03</span>
+                    <h3>Customizable Vote Skip</h3>
+                    <p>Choose the vote threshold and message. Each viewer counts once per playback.</p>
+                </section>
+            </div>
+
+            <div class="feature-ledger">
+                <section class="feature-row">
+                    <div class="feature-row-label">REQUESTS</div>
+                    <div class="feature-row-copy">
+                        Manual dock requests · viewer <code>!sr</code> command · Bits · subscriptions · redeems · other Streamer.bot events · surrounding text is ignored
+                    </div>
+                </section>
+
+                <section class="feature-row">
+                    <div class="feature-row-label">MEDIA</div>
+                    <div class="feature-row-copy">
+                        YouTube videos · YouTube Shorts · Twitch Clips · Medal clips · TikTok videos and short links
+                    </div>
+                </section>
+
+                <section class="feature-row">
+                    <div class="feature-row-label">QUEUE</div>
+                    <div class="feature-row-copy">
+                        Reorder · remove · mark done · history · replay · optional autoplay · titles, creators, thumbnails and duration where available
+                    </div>
+                </section>
+
+                <section class="feature-row">
+                    <div class="feature-row-label">PLAYBACK</div>
+                    <div class="feature-row-copy">
+                        Play / pause · seek · volume / mute · skip / stop · refresh · show / hide · audio-only · fullscreen · open or copy URL
+                    </div>
+                </section>
+
+                <section class="feature-row">
+                    <div class="feature-row-label">CONTROL</div>
+                    <div class="feature-row-copy">
+                        OBS control dock · automatic Browser Source detection · ready-made Streamer.bot actions · optional moderator commands · English / Norwegian
+                    </div>
+                </section>
+            </div>
+
+            <div class="button-row features-actions">
+                <button class="button primary" type="button" data-open-tab="setup">START SETUP</button>
+            </div>
+        </div>
+
+        <div class="tab-panel" id="panel-setup" role="tabpanel" aria-labelledby="tab-setup" hidden>
+            <div class="section-intro setup-heading-row">
+                <h2>Setup</h2>
+            </div>
+
+            <nav class="setup-tabs" role="tablist" aria-label="React Player setup sections">
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="true" data-setup-tab="core">CORE SETUP</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="connections">CONNECTIONS</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="extras">EXTRAS</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="help">HELP</button>
+            </nav>
+
+            <div class="setup-subpanel" data-setup-panel="core">
+                <div class="setup-branch-note">
+                    <span>REQUIRES</span>
+                    OBS + Streamer.bot. Streamer.bot must already be connected to OBS.
+                    <button type="button" data-open-setup="connections">Connection setup</button>
+                </div>
+
+                <div class="steps core-steps">
+                    <article class="step">
+                        <div class="step-heading">
+                            <span class="step-number">1</span>
+                            <h3>Download and import</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="button-row compact-buttons">
+                                <a class="button primary" href="/downloads/React-Player-Import.txt" download>DOWNLOAD REACT PLAYER</a>
+                            </div>
+                            <ol>
+                                <li>In Streamer.bot, click <strong>Import</strong>.</li>
+                                <li>Drag <strong>React-Player-Import.txt</strong> onto the <strong>Import String</strong> box.</li>
+                                <li>Leave the included items selected and click <strong>Import</strong>.</li>
+                            </ol>
+                            <div class="done-when"><strong>Done when:</strong> You see <strong>React Player - by Melkepakken</strong> in Streamer.bot.</div>
+                        </div>
+                    </article>
+
+                    <article class="step">
+                        <div class="step-heading">
+                            <span class="step-number">2</span>
+                            <h3>Start the local WebSocket</h3>
+                        </div>
+                        <div class="step-body">
+                            <ol>
+                                <li>Open <strong>Servers/Clients &gt; WebSocket Server</strong>.</li>
+                                <li>Turn on <strong>Auto Start</strong> and start the server.</li>
+                                <li>Use the defaults: <strong>127.0.0.1</strong> · <strong>8080</strong> · endpoint <strong>/</strong>.</li>
+                            </ol>
+                            <div class="done-when"><strong>Done when:</strong> The Streamer.bot WebSocket server is running.</div>
+                        </div>
+                    </article>
+
+                    <article class="step">
+                        <div class="step-heading">
+                            <span class="step-number">3</span>
+                            <h3>Add the player to OBS</h3>
+                        </div>
+                        <div class="step-body">
+                            <ol>
+                                <li>Add a new <strong>Browser</strong> source in OBS. Name it anything.</li>
+                                <li>Paste the Player URL and set the source size to match your OBS canvas.</li>
+                            </ol>
+                            <div class="code-row">
+                                <code id="player-url">https://react.melkepakken.tv/v1/player/</code>
+                                <button class="copy-button" type="button" data-copy-target="player-url">COPY</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="step">
+                        <div class="step-heading">
+                            <span class="step-number">4</span>
+                            <h3>Add the dock to OBS</h3>
+                        </div>
+                        <div class="step-body">
+                            <ol>
+                                <li>Open <strong>Docks &gt; Custom Browser Docks</strong>.</li>
+                                <li>Name it <strong>React Player</strong> and paste the Dock URL.</li>
+                            </ol>
+                            <div class="code-row">
+                                <code id="dock-url">https://react.melkepakken.tv/v1/dock/</code>
+                                <button class="copy-button" type="button" data-copy-target="dock-url">COPY</button>
+                            </div>
+                            <div class="done-when"><strong>Done when:</strong> The dock is visible and says <strong>Connected</strong>.</div>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="setup-finished">
+                    <strong>SETUP COMPLETE</strong>
+                    Paste a supported link into the dock whenever you want to add a request.
+                </div>
+            </div>
+
+            <div class="setup-subpanel" data-setup-panel="connections" hidden>
+                <div class="guide-section">
+                    <div class="guide-label">STREAMER.BOT → OBS</div>
+                    <h3>Connect Streamer.bot to OBS</h3>
+                    <p>If Streamer.bot already controls your OBS, you can skip this.</p>
+                    <ol>
+                        <li>In OBS, open <strong>Tools &gt; WebSocket Server Settings</strong>.</li>
+                        <li>Turn on <strong>Enable WebSocket server</strong>. Keep port <strong>4455</strong>.</li>
+                        <li>In Streamer.bot, open <strong>Stream Apps &gt; OBS</strong>.</li>
+                        <li>Add an <strong>OBS WebSocket v5</strong> connection.</li>
+                        <li>Use host <strong>127.0.0.1</strong> and port <strong>4455</strong>.</li>
+                        <li>Enter your OBS password only if you set one, then connect.</li>
+                    </ol>
+                </div>
+
+                <div class="guide-section">
+                    <div class="guide-label">WEBSITE → STREAMER.BOT</div>
+                    <h3>Streamer.bot WebSocket settings</h3>
+                    <p>The React Player website talks to Streamer.bot through its local WebSocket server.</p>
+                    <ul class="connection-values">
+                        <li><strong>Address</strong><span>127.0.0.1</span></li>
+                        <li><strong>Port</strong><span>8080</span></li>
+                        <li><strong>Endpoint</strong><span>/</span></li>
+                        <li><strong>Authentication</strong><span>Off</span></li>
+                        <li><strong>Auto Start</strong><span>On</span></li>
+                    </ul>
+                </div>
+
+                <div class="button-row">
+                    <button class="button primary" type="button" data-open-setup="core">BACK TO CORE SETUP</button>
+                </div>
+            </div>
+
+            <div class="setup-subpanel" data-setup-panel="extras" hidden>
+                <div class="extras-grid">
+                    <section class="extra-guide">
+                        <div class="guide-label">VIEWER REQUESTS</div>
+                        <h3>Enable !sr</h3>
+                        <p>Enable the <strong>React Player Request</strong> command in Streamer.bot.</p>
+                        <div class="command-list">!sr · !request · !react · !reactrequest · !addvideo</div>
+                    </section>
+
+                    <section class="extra-guide">
+                        <div class="guide-label">CHAT SCANNER</div>
+                        <h3>Scan normal chat for links</h3>
+                        <p>Enable <strong>- React Player: Scan Chat</strong> and the chat trigger for each platform you want.</p>
+                    </section>
+
+                    <section class="extra-guide">
+                        <div class="guide-label">STREAMELEMENTS</div>
+                        <h3>Accept links from tips</h3>
+                        <p>Enable <strong>- React Player: StreamElements Tip</strong>. Edit its trigger if you want your own tip rules.</p>
+                    </section>
+
+                    <section class="extra-guide">
+                        <div class="guide-label">VOTE SKIP</div>
+                        <h3>Let viewers vote to skip</h3>
+                        <p>Enable <strong>- React Player: Vote Skip</strong> and its command. Default threshold: <strong>3</strong>.</p>
+                        <div class="command-list">!voteskip · !vskip</div>
+                    </section>
+
+                    <section class="extra-guide">
+                        <div class="guide-label">MOD CONTROLS</div>
+                        <h3>Give moderators chat controls</h3>
+                        <p>Enable only the included React Player command objects you want your moderators to use.</p>
+                    </section>
+
+                    <section class="extra-guide">
+                        <div class="guide-label">CUSTOM EVENTS</div>
+                        <h3>Bits, subs, rewards and more</h3>
+                        <p>Use the example triggers inside <strong>React Player: Add Link</strong>, or connect any Streamer.bot event that provides a link.</p>
+                    </section>
+                </div>
+            </div>
+
+            <div class="setup-subpanel" data-setup-panel="help" hidden>
+                <div class="help-list">
+                    <details>
+                        <summary>The dock says Not connected</summary>
+                        <ul>
+                            <li>Make sure Streamer.bot is running.</li>
+                            <li>Check <strong>Servers/Clients &gt; WebSocket Server</strong>.</li>
+                            <li>It should be running on <strong>127.0.0.1</strong>, port <strong>8080</strong>, endpoint <strong>/</strong>.</li>
+                            <li>If your browser asks for local network access for react.melkepakken.tv, allow it.</li>
+                        </ul>
+                    </details>
+
+                    <details>
+                        <summary>The dock cannot find the OBS player</summary>
+                        <p>Check that your OBS Browser Source uses the exact Player URL:</p>
+                        <div class="code-row">
+                            <code id="player-url-trouble">https://react.melkepakken.tv/v1/player/</code>
+                            <button class="copy-button" type="button" data-copy-target="player-url-trouble">COPY</button>
+                        </div>
+                    </details>
+
+                    <details>
+                        <summary>OBS controls do nothing</summary>
+                        <p>Streamer.bot is probably not connected to OBS. Open <strong>Connections</strong> above.</p>
+                    </details>
+
+                    <details>
+                        <summary>Viewer or moderator commands do not work</summary>
+                        <p>React Player commands are disabled by default. Open <strong>Extras</strong> above and enable the commands you want.</p>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel" id="panel-changelog" role="tabpanel" aria-labelledby="tab-changelog" hidden>
+            <div class="section-intro">
+                <h2>Changelog</h2>
+            </div>
+
+            <article class="changelog-entry">
+                <h3>v1.0.0 - Initial release</h3>
+                <ul>
+                    <li>YouTube videos and Shorts, Twitch Clips, Medal and TikTok requests.</li>
+                    <li>Hosted player and OBS control dock.</li>
+                    <li>Queue, history, autoplay, seeking, volume and streamer controls.</li>
+                    <li>Optional viewer requests, chat scanning, StreamElements tips, vote skip and moderator commands.</li>
+                    <li>English and Norwegian dock language.</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="support-card">
+            <strong>React Player is free and open source.</strong>
+            <p>If it helped your stream, feel free to buy me new guitar strings! 🎸</p>
+
+            <form class="donate-form" action="https://www.paypal.com/donate" method="post" target="_top">
+                <input type="hidden" name="hosted_button_id" value="268DLMTLTK4NU">
+                <input class="donate-button" type="submit" value="Donate" aria-label="Donate with PayPal">
+            </form>
+        </div>
+
+        <div class="footer-meta">
+            <p>Made with ♥ by <a href="https://www.twitch.tv/melkepakken">Melkepakken</a>.</p>
+            <p>React Player will always be free.</p>
+        </div>
+    </footer>
+</main>
+
+<script>
+    const currentVersion = String(
+        window.ReactPlayerVersion || "1.0.0"
+    ).trim();
+
+    for (const element of document.querySelectorAll("[data-current-version]")) {
+        element.textContent = "v" + currentVersion.replace(/^v/i, "");
+    }
+
+    const tabButtons = Array.from(
+        document.querySelectorAll("[data-tab]")
+    );
+
+    const tabPanels = Array.from(
+        document.querySelectorAll(".tab-panel")
+    );
+
+    function openTab(tabName, updateHash = true) {
+        const safeName = ["overview", "features", "setup", "changelog"].includes(tabName)
+            ? tabName
+            : "overview";
+
+        for (const button of tabButtons) {
+            const active = button.dataset.tab === safeName;
+            button.setAttribute("aria-selected", active ? "true" : "false");
+            button.tabIndex = active ? 0 : -1;
+        }
+
+        for (const panel of tabPanels) {
+            panel.hidden = panel.id !== "panel-" + safeName;
+        }
+
+        if (updateHash) {
+            history.replaceState(null, "", "#" + safeName);
+        }
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    for (const button of tabButtons) {
+        button.addEventListener("click", () => {
+            openTab(button.dataset.tab);
+        });
+
+        button.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                return;
+            }
+
+            event.preventDefault();
+
+            const currentIndex = tabButtons.indexOf(button);
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            const nextIndex = (currentIndex + direction + tabButtons.length) % tabButtons.length;
+            const nextButton = tabButtons[nextIndex];
+
+            openTab(nextButton.dataset.tab);
+            nextButton.focus();
+        });
+    }
+
+    for (const button of document.querySelectorAll("[data-open-tab]")) {
+        button.addEventListener("click", () => {
+            openTab(button.dataset.openTab);
+        });
+    }
+
+
+    const setupTabButtons = Array.from(
+        document.querySelectorAll("[data-setup-tab]")
+    );
+
+    const setupSubpanels = Array.from(
+        document.querySelectorAll("[data-setup-panel]")
+    );
+
+    function openSetupSection(sectionName) {
+        const safeName = ["core", "connections", "extras", "help"].includes(sectionName)
+            ? sectionName
+            : "core";
+
+        for (const button of setupTabButtons) {
+            const active = button.dataset.setupTab === safeName;
+            button.setAttribute("aria-selected", active ? "true" : "false");
+        }
+
+        for (const panel of setupSubpanels) {
+            panel.hidden = panel.dataset.setupPanel !== safeName;
+        }
+    }
+
+    for (const button of setupTabButtons) {
+        button.addEventListener("click", () => {
+            openSetupSection(button.dataset.setupTab);
+        });
+    }
+
+    for (const button of document.querySelectorAll("[data-open-setup]")) {
+        button.addEventListener("click", () => {
+            openSetupSection(button.dataset.openSetup);
+        });
+    }
+
+    async function copyText(value, button) {
+        try {
+            await navigator.clipboard.writeText(value);
+        } catch (error) {
+            const textarea = document.createElement("textarea");
+            textarea.value = value;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            textarea.remove();
+        }
+
+        const oldText = button.textContent;
+        button.textContent = "Copied";
+        button.classList.add("copied");
+
+        setTimeout(() => {
+            button.textContent = oldText;
+            button.classList.remove("copied");
+        }, 1200);
+    }
+
+    for (const button of document.querySelectorAll("[data-copy-target]")) {
+        button.addEventListener("click", () => {
+            const target = document.getElementById(button.dataset.copyTarget);
+
+            if (!target) {
+                return;
+            }
+
+            copyText(target.textContent.trim(), button);
+        });
+    }
+
+    openSetupSection("core");
+
+    const initialTab = window.location.hash.replace("#", "");
+    openTab(initialTab || "overview", false);
+</script>
+</body>
+</html>
