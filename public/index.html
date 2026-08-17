@@ -13,10 +13,16 @@
     <meta property="og:title" content="React Player - Free Media Requests for OBS + Streamer.bot">
     <meta property="og:description" content="A free, open-source media request player and OBS dock for Streamer.bot, supporting YouTube and Shorts, Twitch Clips, Medal and TikTok.">
     <meta property="og:url" content="https://react.melkepakken.tv/">
+    <meta property="og:image" content="https://react.melkepakken.tv/favicon.png">
+    <meta property="og:image:alt" content="React Player logo">
 
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="React Player - Free Media Requests for OBS + Streamer.bot">
     <meta name="twitter:description" content="A free, open-source media request player and OBS dock for Streamer.bot, supporting YouTube and Shorts, Twitch Clips, Medal and TikTok.">
+    <meta name="twitter:image" content="https://react.melkepakken.tv/favicon.png">
+    <meta name="twitter:image:alt" content="React Player logo">
+
+    <link rel="icon" type="image/png" href="/favicon.png">
 
     <script type="application/ld+json">
     {
@@ -457,37 +463,50 @@
         }
 
         .setup-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            margin-bottom: 14px;
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-            background: #0d1014;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 6px;
+            margin-bottom: 16px;
         }
 
         .setup-tab-button {
-            min-height: 36px;
-            padding: 7px 13px;
-            border: 0;
-            border-right: 1px solid var(--line);
-            background: transparent;
-            color: var(--soft);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 48px;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            background: #0d1014;
+            color: var(--muted);
             cursor: pointer;
             font-family: Consolas, "Courier New", monospace;
             font-size: 11px;
             font-weight: 800;
             letter-spacing: .055em;
+            text-align: center;
+        }
+
+        .setup-tab-button span {
+            color: var(--cyan-dim);
+            font-size: 10px;
         }
 
         .setup-tab-button:hover {
+            border-color: var(--cyan-dim);
             color: var(--text);
             background: #12171c;
         }
 
         .setup-tab-button[aria-selected="true"] {
+            border-color: var(--violet);
             color: #fff;
-            background: #17121f;
+            background: linear-gradient(90deg, rgba(166,108,255,.20), rgba(101,215,255,.06));
             box-shadow: inset 0 -2px 0 var(--violet);
+        }
+
+        .setup-tab-button[aria-selected="true"] span {
+            color: var(--cyan);
         }
 
         .setup-subpanel[hidden] {
@@ -795,8 +814,7 @@
             .content-panel { padding: 18px 14px 8px; }
             .request-flow { grid-template-columns: 1fr; }
             .feature-row { grid-template-columns: 1fr; gap: 3px; }
-            .setup-tabs { overflow-x: auto; flex-wrap: nowrap; }
-            .setup-tab-button { flex: 1 0 auto; }
+            .setup-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .connection-values li { grid-template-columns: 1fr auto; }
             .request-flow-item,
             .request-flow-item:nth-child(2) { border-right: 0; border-bottom: 1px solid var(--line-hot); }
@@ -976,10 +994,10 @@
             </div>
 
             <nav class="setup-tabs" role="tablist" aria-label="React Player setup sections">
-                <button class="setup-tab-button" type="button" role="tab" aria-selected="true" data-setup-tab="core">CORE SETUP</button>
-                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="connections">CONNECTIONS</button>
-                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="extras">EXTRAS</button>
-                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="help">HELP</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="true" data-setup-tab="core"><span>01</span> CORE SETUP</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="connections"><span>02</span> CONNECTIONS</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="extras"><span>03</span> EXTRAS</button>
+                <button class="setup-tab-button" type="button" role="tab" aria-selected="false" data-setup-tab="help"><span>04</span> HELP</button>
             </nav>
 
             <div class="setup-subpanel" data-setup-panel="core">

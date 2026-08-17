@@ -2,7 +2,7 @@ export function onRequestGet() {
     const payload = {
         ok: true,
         service: "react-player",
-        version: "v1-rc"
+        version: "v1.0.0"
     };
 
     return new Response(
