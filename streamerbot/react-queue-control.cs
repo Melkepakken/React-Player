@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 public class CPHInline
 {
-    private const string BACKEND_VERSION = "1.0.0";
+    private const string BACKEND_VERSION = "1.0.1";
 
     private const string OBS_STATUS_UNKNOWN = "unknown";
     private const string OBS_STATUS_DETECTING = "detecting";
@@ -923,6 +923,21 @@ public class CPHInline
         if (operation == "openpreferences")
         {
             return OpenPlaybackPreferences();
+        }
+
+        if (operation == "openupdate")
+        {
+            CPH.SetArgument(
+                "reactBrowserUrl",
+                "https://react.melkepakken.tv/update/"
+            );
+
+            CPH.SetArgument(
+                "reactShouldOpenBrowser",
+                true
+            );
+
+            return true;
         }
 
         if (!CPH.TryGetArg("id", out string id) ||

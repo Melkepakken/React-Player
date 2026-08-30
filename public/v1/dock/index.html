@@ -77,11 +77,12 @@
             border-radius: 5px;
             background: #9147ff;
             color: #fff;
+            font: inherit;
             font-weight: bold;
             text-decoration: none;
         }
 
-        .backend-update-download:hover,
+        button.backend-update-download:hover,
         .backend-update-download:focus-visible {
             background: #a970ff;
         }
@@ -1224,8 +1225,8 @@
     <div id="backendUpdateNotice" class="backend-update-notice" role="status" aria-live="polite" hidden>
         <div class="backend-update-row">
             <strong><span aria-hidden="true">🆕</span> <span data-i18n="backendUpdate.available">Streamer.bot update available</span></strong>
-            <a class="backend-update-download" href="/update/" target="_blank" rel="noopener noreferrer"
-                data-i18n="backendUpdate.openPage">Download update</a>
+            <button id="backendUpdateButton" class="backend-update-download" type="button"
+                data-i18n="backendUpdate.openPage">Download update</button>
         </div>
         <p class="backend-update-note" data-i18n="backendUpdate.renamedAction">Renamed React Player: Control? Rename it back first.</p>
     </div>
@@ -1487,7 +1488,7 @@
         const GLOBAL_BACKEND_VERSION = "ReactPlayerBackendVersion";
         const GLOBAL_BACKEND_VERSION_TOKEN = "ReactPlayerBackendVersionToken";
         // Bump only when the local Control backend changes, not hosted-only UI updates.
-        const LATEST_BACKEND_VERSION = "1.0.0";
+        const LATEST_BACKEND_VERSION = "1.0.1";
         const GLOBAL_OBS_SOURCE = "ReactObsSource";
         const GLOBAL_OBS_CONTAINER = "ReactObsContainer";
         const GLOBAL_OBS_CONTAINER_TYPE = "ReactObsContainerType";
@@ -1810,6 +1811,7 @@
 
         const connectionStatus = document.getElementById("connectionStatus");
         const backendUpdateNotice = document.getElementById("backendUpdateNotice");
+        const backendUpdateButton = document.getElementById("backendUpdateButton");
         const dockControls = document.getElementById("dockControls");
         const dependencyBlocker = document.getElementById("dependencyBlocker");
         const dependencyTitle = document.getElementById("dependencyTitle");
@@ -5109,6 +5111,7 @@
             control("refresh");
         });
         projectorButton.addEventListener("click", toggleProjectorOptimistically);
+        backendUpdateButton.addEventListener("click", () => control("openupdate"));
         browserButton.addEventListener("click", () => current && control("browser", current.Id));
         copyUrlButton.addEventListener("click", () => current && copyRequestUrl(current, copyUrlButton));
         skipButton.addEventListener("click", skipCurrentOptimistically);
