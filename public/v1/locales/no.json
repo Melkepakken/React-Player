@@ -14,7 +14,7 @@
   "dependency.chooseTargetAction": "Velg plassering",
   "dependency.tryAgain": "Prøv igjen",
   "backendUpdate.available": "Streamer.bot-oppdatering tilgjengelig",
-  "backendUpdate.download": "Last ned oppdatering",
+  "backendUpdate.openPage": "Last ned oppdatering",
   "backendUpdate.renamedAction": "Endret navn på React Player: Control? Bytt tilbake først.",
   "settings.title": "Innstillinger",
   "settings.open": "Åpne innstillinger",

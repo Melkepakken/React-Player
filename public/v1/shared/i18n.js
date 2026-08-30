@@ -26,7 +26,7 @@
         "dependency.tryAgain": "Try again",
 
         "backendUpdate.available": "Streamer.bot update available",
-        "backendUpdate.download": "Download update",
+        "backendUpdate.openPage": "Download update",
         "backendUpdate.renamedAction": "Renamed React Player: Control? Rename it back first.",
 
         "settings.title": "Settings",
