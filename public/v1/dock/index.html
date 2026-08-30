@@ -53,6 +53,45 @@
             margin-bottom: 8px;
         }
 
+        .backend-update-notice {
+            margin-bottom: 8px;
+            padding: 9px 10px;
+            border: 1px solid #70518f;
+            border-radius: 7px;
+            background: #292132;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .backend-update-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+
+        .backend-update-download {
+            display: inline-block;
+            padding: 6px 9px;
+            border-radius: 5px;
+            background: #9147ff;
+            color: #fff;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .backend-update-download:hover,
+        .backend-update-download:focus-visible {
+            background: #a970ff;
+        }
+
+        .backend-update-note {
+            margin: 7px 0 0;
+            color: #c8c8cf;
+            font-size: 11px;
+        }
+
         .title-wrap {
             display: flex;
             align-items: center;
@@ -182,6 +221,64 @@
         .obs-setup-toggle.open {
             background: #4f2683;
             color: #ffffff;
+        }
+
+        .obs-setup-toggle.attention {
+            outline: 2px solid #ffd37a;
+            color: #ffd37a;
+        }
+
+        body.dependency-blocked {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dependency-blocker {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 24px 12px;
+            text-align: center;
+            border: 2px solid #a85838;
+            border-radius: 7px;
+            background: #302020;
+        }
+
+        .dependency-blocker[hidden],
+        #dockControls[hidden] {
+            display: none;
+        }
+
+        .dependency-blocker.settings-open {
+            flex: 0;
+            margin-bottom: 8px;
+        }
+
+        .dependency-title {
+            margin: 0;
+            color: #ffd37a;
+            font-size: 22px;
+            line-height: 1.35;
+        }
+
+        .dependency-message {
+            margin: 10px 0 0;
+        }
+
+        .dependency-actions {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .dependency-actions button {
+            min-height: 38px;
+            padding: 8px 16px;
         }
 
         .obs-setup-panel {
@@ -370,6 +467,11 @@
 
         .playback-preferences-message {
             color: #ffd37a;
+        }
+
+        .playback-preferences-instructions {
+            white-space: pre-line;
+            line-height: 1.7;
         }
 
         .playback-preferences-message[hidden] {
@@ -779,7 +881,15 @@
         }
 
         .manual-add-status.error {
-            color: #ff8f8f;
+            padding: 9px 11px;
+            border: 1px solid #e36b6b;
+            border-left-width: 4px;
+            border-radius: 5px;
+            background: #3b2024;
+            color: #ffd2d2;
+            font-size: 13px;
+            font-weight: bold;
+            line-height: 1.4;
         }
 
         .tabs-toolbar {
@@ -1111,6 +1221,26 @@
         </div>
     </div>
 
+    <div id="backendUpdateNotice" class="backend-update-notice" role="status" aria-live="polite" hidden>
+        <div class="backend-update-row">
+            <strong><span aria-hidden="true">🆕</span> <span data-i18n="backendUpdate.available">Streamer.bot update available</span></strong>
+            <a class="backend-update-download" href="/downloads/React-Player-Control-Update.txt"
+                download="React-Player-Control-Update.txt" data-i18n="backendUpdate.download">Download update</a>
+        </div>
+        <p class="backend-update-note" data-i18n="backendUpdate.renamedAction">Renamed React Player: Control? Rename it back first.</p>
+    </div>
+
+    <div id="dependencyBlocker" class="dependency-blocker" hidden>
+        <div role="alert" aria-atomic="true">
+            <h1 class="dependency-title"><span aria-hidden="true">⚠</span> <span id="dependencyTitle"></span></h1>
+            <p id="dependencyMessage" class="dependency-message" hidden></p>
+        </div>
+        <div class="dependency-actions">
+            <button id="dependencyRetryButton" class="primary" type="button" data-i18n="dependency.tryAgain">Try again</button>
+            <button id="dependencySettingsButton" type="button">Settings</button>
+        </div>
+    </div>
+
     <div id="obsSetupPanel" class="obs-setup-panel" data-status="unknown" role="region" aria-labelledby="settingsTitle"
         hidden>
         <div class="obs-setup-heading">
@@ -1232,6 +1362,7 @@
         </div>
     </div>
 
+    <div id="dockControls">
     <div class="panel">
         <div class="section-label" data-i18n="current.nowPlaying">Now playing</div>
 
@@ -1305,7 +1436,7 @@
             <button id="manualAddButton" class="primary" type="button" data-i18n="manual.add">Add</button>
         </div>
 
-        <div id="manualAddStatus" class="manual-add-status"></div>
+        <div id="manualAddStatus" class="manual-add-status" role="status" aria-live="polite" aria-atomic="true"></div>
     </div>
 
     <div class="tabs-toolbar">
@@ -1333,6 +1464,7 @@
         <button id="refreshButton" class="utility-button" type="button" data-i18n="controls.refreshPlayer"
             data-i18n-title="controls.refreshTitle" title="Reload the React Player source">Refresh player</button>
     </div>
+    </div>
 
     <script>
         const reactActions =
@@ -1350,6 +1482,12 @@
         const GLOBAL_PROJECTOR_OPEN = "ReactPlayerProjectorOpen";
         const GLOBAL_AUTOPLAY = "ReactAutoPlay";
         const GLOBAL_OBS_DETECTION_STATUS = "ReactObsDetectionStatus";
+        const GLOBAL_OBS_STARTED_TOKEN = "ReactObsStartedToken";
+        const GLOBAL_OBS_COMPLETED_TOKEN = "ReactObsCompletedToken";
+        const GLOBAL_BACKEND_VERSION = "ReactPlayerBackendVersion";
+        const GLOBAL_BACKEND_VERSION_TOKEN = "ReactPlayerBackendVersionToken";
+        // Bump only when the local Control backend changes, not hosted-only UI updates.
+        const LATEST_BACKEND_VERSION = "1.0.0";
         const GLOBAL_OBS_SOURCE = "ReactObsSource";
         const GLOBAL_OBS_CONTAINER = "ReactObsContainer";
         const GLOBAL_OBS_CONTAINER_TYPE = "ReactObsContainerType";
@@ -1450,6 +1588,10 @@
         let hasEverConnected = false;
         let diagnosticsDismissed = false;
         let initialConnectionDiagnosticTimer = null;
+        let connectionBlocked = false;
+        let connectionEpoch = 0;
+        let installedBackendVersion = null;
+        let backendVersionRevision = 0;
         let client;
 
         client = new StreamerbotClient({
@@ -1458,10 +1600,15 @@
             endpoint: "/",
 
             onConnect: async () => {
+                const epoch = ++connectionEpoch;
                 streamerBotConnected = true;
+                resetBackendVersion();
+                resetObsRecovery();
+                startObsSetupOperation("initializing");
+                obsDetectionStatus = "detecting";
                 handleConnectionEstablished();
                 setConnected(true);
-                obsDetectionStatus = "detecting";
+                updateObsRecovery();
                 renderObsSetup();
                 renderCurrent();
 
@@ -1470,12 +1617,13 @@
                         client
                     );
 
-                    // Create any globals that do not exist yet.
-                    await reactActions.run(
-                        client,
-                        "control",
-                        { operation: "init" }
-                    );
+                    if (epoch !== connectionEpoch || !streamerBotConnected) {
+                        return;
+                    }
+
+                    // Create globals and wait for confirmed completion
+                    // before allowing another OBS detection operation.
+                    await control("init");
 
                     try {
                         const broadcaster =
@@ -1510,14 +1658,27 @@
                         manualSubmitterName = "Streamer";
                     }
 
-                    await loadState();
+                    if (epoch === connectionEpoch && streamerBotConnected) {
+                        await loadState();
+                    }
                 } catch (error) {
                     console.error("React Player dock initialization failed:", error);
+                    if (epoch === connectionEpoch && streamerBotConnected) {
+                        finishObsSetupOperation();
+                        obsDetectionStatus = "error";
+                        updateObsRecovery();
+                        renderObsSetup();
+                    }
                 }
             },
 
             onDisconnect: () => {
+                connectionEpoch++;
                 streamerBotConnected = false;
+                resetBackendVersion();
+                connectionBlocked = connectionBlocked || obsBlocked;
+                resetObsRecovery();
+                obsDetectionStatus = "unknown";
                 setConnected(false);
                 renderObsSetup();
                 renderCurrent();
@@ -1525,6 +1686,7 @@
 
                 if (hasEverConnected) {
                     showConnectionDiagnostics();
+                    startInitialConnectionDiagnosticTimer();
                 }
             },
 
@@ -1536,13 +1698,17 @@
         client.on(
             "Raw.ActionCompleted",
             ({ data }) => {
-                if (!data || !data.arguments) {
+                if (!data) {
                     return;
                 }
 
-                const args = data.arguments;
+                const args = data.arguments || {};
                 const completedOperation =
                     String(args.operation || "").toLowerCase();
+
+                if (streamerBotConnected && reactActions.matches(data, "control")) {
+                    confirmBackendVersion(args.reactBackendVersion);
+                }
 
                 if (
                     reactActions.matches(data, "control") &&
@@ -1552,6 +1718,9 @@
                         completedOperation === "setobstarget"
                     )
                 ) {
+                    if (obsSetupOperationToken && String(args.reactControlToken || "") === obsSetupOperationToken) {
+                        finishObsSetupOperation();
+                    }
                     loadObsSetupState();
                 }
 
@@ -1640,6 +1809,13 @@
         );
 
         const connectionStatus = document.getElementById("connectionStatus");
+        const backendUpdateNotice = document.getElementById("backendUpdateNotice");
+        const dockControls = document.getElementById("dockControls");
+        const dependencyBlocker = document.getElementById("dependencyBlocker");
+        const dependencyTitle = document.getElementById("dependencyTitle");
+        const dependencyMessage = document.getElementById("dependencyMessage");
+        const dependencyRetryButton = document.getElementById("dependencyRetryButton");
+        const dependencySettingsButton = document.getElementById("dependencySettingsButton");
         const connectionDiagnostics = document.getElementById("connectionDiagnostics");
         const diagnosticsRetryButton = document.getElementById("diagnosticsRetryButton");
         const diagnosticsDismissButton = document.getElementById("diagnosticsDismissButton");
@@ -1753,6 +1929,19 @@
         let obsSetupLoading = false;
         let obsSetupReloadRequested = false;
         let selectedObsCandidateKey = "";
+        const OBS_RETRY_DELAYS = [2000, 5000, 10000, 30000];
+        let obsRetryTimer = null;
+        let obsRetryAttempt = 0;
+        let obsGraceTimer = null;
+        let obsBlocked = false;
+        let obsHasBeenReady = false;
+        let obsSetupOperationToken = "";
+        let obsSetupReceiptSupported = false;
+        let obsSetupLegacyFallbackAllowed = false;
+        let obsSetupBackendVersionRevision = 0;
+        let obsSetupRevision = 0;
+        let obsOperationWatchdogTimer = null;
+        let obsOperationStalled = false;
 
         let playbackPreferencesActive = false;
         let playbackPreferencesProvider = "";
@@ -1985,9 +2174,174 @@
             return obsDetectionStatus === "ready";
         }
 
+        function parseBackendVersion(value) {
+            const version = typeof value === "string" ? value.trim() : "";
+            if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+                return null;
+            }
+            const parts = version.split(".").map(Number);
+            return parts.every(Number.isSafeInteger) ? parts : null;
+        }
+
+        function backendUpdateAvailable(installed, latest) {
+            const installedParts = parseBackendVersion(installed);
+            const latestParts = parseBackendVersion(latest);
+            if (!installedParts) return true;
+            if (!latestParts) return false;
+            for (let index = 0; index < 3; index++) {
+                if (installedParts[index] !== latestParts[index]) {
+                    return installedParts[index] < latestParts[index];
+                }
+            }
+            return false;
+        }
+
+        function renderBackendUpdateNotice() {
+            backendUpdateNotice.hidden = !streamerBotConnected || installedBackendVersion === null ||
+                !backendUpdateAvailable(installedBackendVersion, LATEST_BACKEND_VERSION);
+        }
+
+        function resetBackendVersion() {
+            installedBackendVersion = null;
+            backendVersionRevision++;
+            renderBackendUpdateNotice();
+        }
+
+        function confirmBackendVersion(value) {
+            installedBackendVersion = parseBackendVersion(value) ? value.trim() : "";
+            backendVersionRevision++;
+            renderBackendUpdateNotice();
+        }
+
+        function clearObsRetryTimer() {
+            clearTimeout(obsRetryTimer);
+            obsRetryTimer = null;
+        }
+
+        function startObsSetupOperation(token) {
+            finishObsSetupOperation();
+            obsSetupOperationToken = token;
+            obsSetupBackendVersionRevision = backendVersionRevision;
+            obsOperationWatchdogTimer = setTimeout(() => {
+                obsOperationWatchdogTimer = null;
+                // Do not submit another scan when completion is uncertain.
+                // Let the user reload the connection instead of waiting forever.
+                obsOperationStalled = true;
+                renderDependencyBlocker();
+            }, 30000);
+        }
+
+        function finishObsSetupOperation() {
+            clearTimeout(obsOperationWatchdogTimer);
+            obsOperationWatchdogTimer = null;
+            obsOperationStalled = false;
+            obsSetupOperationToken = "";
+            obsSetupReceiptSupported = false;
+            obsSetupLegacyFallbackAllowed = false;
+            obsSetupRevision++;
+        }
+
+        function resetObsRecovery() {
+            clearObsRetryTimer();
+            clearTimeout(obsGraceTimer);
+            obsGraceTimer = null;
+            obsRetryAttempt = 0;
+            obsBlocked = false;
+            obsHasBeenReady = false;
+            obsSetupReloadRequested = false;
+            finishObsSetupOperation();
+        }
+
+        function updateObsRecovery() {
+            if (!streamerBotConnected) {
+                return;
+            }
+
+            if (obsTargetReady()) {
+                clearTimeout(obsGraceTimer);
+                obsGraceTimer = null;
+                obsBlocked = false;
+                obsHasBeenReady = true;
+                obsRetryAttempt = 0;
+            } else if (!obsGraceTimer && !obsBlocked) {
+                // Detection retries must not restart this grace period.
+                obsGraceTimer = setTimeout(() => {
+                    obsGraceTimer = null;
+                    obsBlocked = streamerBotConnected && !obsTargetReady();
+                    renderObsSetup();
+                }, obsHasBeenReady ? 2500 : 5000);
+            }
+
+            const shouldRetry =
+                ["error", "not_found", "not_placed"].includes(obsDetectionStatus);
+
+            if (!shouldRetry || obsSetupOperationToken) {
+                clearObsRetryTimer();
+                if (obsDetectionStatus === "ambiguous") {
+                    obsRetryAttempt = 0;
+                }
+            } else if (!obsRetryTimer) {
+                const delay = OBS_RETRY_DELAYS[
+                    Math.min(obsRetryAttempt, OBS_RETRY_DELAYS.length - 1)
+                ];
+                obsRetryTimer = setTimeout(() => {
+                    obsRetryTimer = null;
+                    obsRetryAttempt++;
+                    detectObsSetup(false);
+                }, delay);
+            }
+        }
+
+        function renderDependencyBlocker() {
+            const blocked = streamerBotConnected ? obsBlocked : connectionBlocked;
+            const wasHidden = dependencyBlocker.hidden;
+            const activeElement = document.activeElement;
+            document.body.classList.toggle("dependency-blocked", blocked);
+            dependencyBlocker.hidden = !blocked;
+            dependencyBlocker.classList.toggle("settings-open", obsSetupOpen);
+            dockControls.hidden = blocked;
+            dockControls.inert = blocked;
+
+            const title = t(streamerBotConnected
+                ? "dependency.obsUnavailable"
+                : "dependency.streamerBotUnavailable");
+            const message = streamerBotConnected && !obsOperationStalled
+                ? t(obsDetectionStatus === "ambiguous"
+                    ? "dependency.chooseTarget"
+                    : "dependency.reconnecting")
+                : "";
+
+            if (dependencyTitle.textContent !== title) {
+                dependencyTitle.textContent = title;
+            }
+            if (dependencyMessage.textContent !== message) {
+                dependencyMessage.textContent = message;
+            }
+            dependencyMessage.hidden = !message;
+            const chooseTarget = streamerBotConnected && obsDetectionStatus === "ambiguous";
+            dependencyRetryButton.hidden = chooseTarget;
+            dependencySettingsButton.textContent = t(chooseTarget
+                ? "dependency.chooseTargetAction"
+                : "settings.title");
+            dependencySettingsButton.classList.toggle("primary", chooseTarget);
+            dependencyRetryButton.textContent = t(streamerBotConnected
+                ? "dependency.tryAgain"
+                : "diagnostics.retry");
+            dependencyRetryButton.disabled = streamerBotConnected && !obsOperationStalled &&
+                (!!obsSetupOperationToken || obsDetectionStatus === "detecting");
+
+            if (blocked && wasHidden && dockControls.contains(activeElement)) {
+                dependencySettingsButton.focus();
+            } else if (!blocked && !wasHidden && dependencyBlocker.contains(activeElement)) {
+                obsSetupToggleButton.focus();
+            }
+        }
+
         function renderObsSetup() {
             obsSetupPanel.hidden = !obsSetupOpen;
             obsSetupPanel.dataset.status = obsDetectionStatus;
+            connectionDiagnostics.hidden = streamerBotConnected || !obsSetupOpen || diagnosticsDismissed;
+            obsSetupToggleButton.classList.toggle("attention", streamerBotConnected && obsBlocked);
 
             obsSetupToggleButton.classList.toggle(
                 "open",
@@ -2100,7 +2454,7 @@
             }
 
             const setupBusy =
-                obsDetectionStatus === "detecting";
+                !!obsSetupOperationToken || obsDetectionStatus === "detecting";
 
             obsSetupDetectButton.disabled =
                 !streamerBotConnected || setupBusy;
@@ -2122,6 +2476,8 @@
             obsSetupUseSelectedButton.textContent = t(
                 "obsSetup.useSelected"
             );
+            renderConnectionStatus();
+            renderDependencyBlocker();
         }
 
         function applyObsSetupState(nextState) {
@@ -2129,6 +2485,10 @@
             const nextStatus = normalizeObsDetectionStatus(
                 nextState.status
             );
+
+            if (obsSetupOperationToken) {
+                return;
+            }
 
             obsDetectionStatus = nextStatus;
             obsSource = String(nextState.source || "");
@@ -2153,6 +2513,7 @@
             }
 
             obsSetupStateInitialized = true;
+            updateObsRecovery();
             renderObsSetup();
             renderCurrent();
         }
@@ -2167,7 +2528,9 @@
 
         function renderConnectionStatus() {
             const statusKey = connectionPhase === "connected"
-                ? "connection.connected"
+                ? obsTargetReady() || obsBlocked
+                    ? "connection.connected"
+                    : "connection.checkingObs"
                 : connectionPhase === "connecting"
                     ? "connection.connecting"
                     : "connection.disconnected";
@@ -2190,12 +2553,13 @@
                 return;
             }
 
-            connectionDiagnostics.hidden = false;
+            connectionDiagnostics.hidden = !obsSetupOpen;
         }
 
         function handleConnectionEstablished() {
             hasEverConnected = true;
             diagnosticsDismissed = false;
+            connectionBlocked = false;
 
             if (initialConnectionDiagnosticTimer) {
                 clearTimeout(initialConnectionDiagnosticTimer);
@@ -2208,7 +2572,7 @@
         function startInitialConnectionDiagnosticTimer() {
             if (
                 initialConnectionDiagnosticTimer ||
-                hasEverConnected
+                streamerBotConnected
             ) {
                 return;
             }
@@ -2217,13 +2581,14 @@
                 initialConnectionDiagnosticTimer = null;
 
                 if (
-                    !hasEverConnected &&
                     !streamerBotConnected
                 ) {
+                    connectionBlocked = true;
                     setConnected(false);
                     showConnectionDiagnostics();
+                    renderDependencyBlocker();
                 }
-            }, 7000);
+            }, hasEverConnected ? 2500 : 7000);
         }
 
         function stateLabel(state) {
@@ -2946,8 +3311,56 @@
             }
 
             obsSetupLoading = true;
+            let revision = obsSetupRevision;
 
             try {
+                if (obsSetupOperationToken) {
+                    const operationToken = obsSetupOperationToken;
+                    const legacyFallbackAllowed = obsSetupLegacyFallbackAllowed;
+                    // A successful snapshot distinguishes absent legacy receipts
+                    // from a failed read, which must never release the lock.
+                    const receipts = await client.getGlobals(false);
+
+                    if (!streamerBotConnected || revision !== obsSetupRevision) {
+                        return;
+                    }
+
+                    if (!receipts || receipts.status !== "ok" || !receipts.variables ||
+                        typeof receipts.variables !== "object" || Array.isArray(receipts.variables)) {
+                        throw new Error("Could not read OBS operation receipts.");
+                    }
+
+                    const started = receipts.variables[GLOBAL_OBS_STARTED_TOKEN];
+                    const completed = receipts.variables[GLOBAL_OBS_COMPLETED_TOKEN];
+                    if (started && started.value === operationToken) {
+                        obsSetupReceiptSupported = true;
+                        if (obsSetupBackendVersionRevision === backendVersionRevision) {
+                            const version = receipts.variables[GLOBAL_BACKEND_VERSION];
+                            const versionToken = receipts.variables[GLOBAL_BACKEND_VERSION_TOKEN];
+                            // Earlier unversioned Control code also writes a start token.
+                            // Require this execution's version token, never a stale version alone.
+                            confirmBackendVersion(versionToken && versionToken.value === operationToken && version
+                                ? version.value : "");
+                        }
+                    }
+
+                    if ((!completed || completed.value !== operationToken) &&
+                        (obsSetupReceiptSupported || !legacyFallbackAllowed)) {
+                        return;
+                    }
+
+                    // New operations require exact completion. Legacy installs
+                    // resume polling only after the existing safety window.
+                    // In either case, fetch a fresh OBS state after releasing.
+                    if (obsSetupBackendVersionRevision === backendVersionRevision) {
+                        // No version evidence from this execution: use the legacy notice.
+                        // A newer completion event or receipt always takes precedence.
+                        confirmBackendVersion("");
+                    }
+                    finishObsSetupOperation();
+                    revision = obsSetupRevision;
+                }
+
                 const responses = await Promise.all([
                     client.getGlobal(
                         GLOBAL_OBS_DETECTION_STATUS,
@@ -2969,6 +3382,10 @@
                         true
                     )
                 ]);
+
+                if (!streamerBotConnected || revision !== obsSetupRevision) {
+                    return;
+                }
 
                 const rawCandidates = parseJson(
                     getGlobalValue(responses[6]),
@@ -2995,6 +3412,15 @@
                     "React Player dock OBS setup sync failed:",
                     error
                 );
+                if (streamerBotConnected && revision === obsSetupRevision) {
+                    // A failed read is not proof that an in-flight scan ended.
+                    if (!obsSetupOperationToken) {
+                        obsDetectionStatus = "error";
+                    }
+                    updateObsRecovery();
+                    renderObsSetup();
+                    renderCurrent();
+                }
             } finally {
                 obsSetupLoading = false;
 
@@ -3025,6 +3451,12 @@
                 "-" +
                 Math.random().toString(36).slice(2);
 
+            const obsOperation = ["init", "detectobs", "setobstarget"].includes(operation);
+            const epoch = connectionEpoch;
+            if (obsOperation) {
+                startObsSetupOperation(controlToken);
+            }
+
             pendingControlTokens.add(controlToken);
 
             try {
@@ -3041,6 +3473,11 @@
                     )
                 );
 
+                if (epoch !== connectionEpoch || !streamerBotConnected) {
+                    pendingControlTokens.delete(controlToken);
+                    return;
+                }
+
                 // Safety fallback in case ActionCompleted is ever missed.
                 setTimeout(() => {
                     if (
@@ -3056,6 +3493,11 @@
                             operation
                         );
 
+                        if (obsOperation && epoch === connectionEpoch &&
+                            obsSetupOperationToken === controlToken) {
+                            obsSetupLegacyFallbackAllowed = true;
+                        }
+
                         loadState();
                     }
                 }, 3000);
@@ -3067,6 +3509,13 @@
                 );
 
                 console.error("React Player control failed:", error);
+                if (obsOperation && epoch === connectionEpoch && obsSetupOperationToken === controlToken) {
+                    finishObsSetupOperation();
+                    obsDetectionStatus = "error";
+                    updateObsRecovery();
+                    renderObsSetup();
+                    renderCurrent();
+                }
                 loadState();
             }
         }
@@ -4421,29 +4870,35 @@
             }
         }
 
-        function beginObsSetupOperation() {
+        function beginObsSetupOperation(openSettings = true) {
+            clearObsRetryTimer();
             obsDetectionStatus = "detecting";
-            obsSetupOpen = true;
+            if (openSettings) {
+                obsSetupOpen = true;
+            }
             obsSetupStateInitialized = true;
+            updateObsRecovery();
             renderObsSetup();
             renderCurrent();
         }
 
-        function detectObsSetup() {
+        function detectObsSetup(openSettings = true) {
             if (
                 !streamerBotConnected ||
+                obsSetupOperationToken ||
                 obsDetectionStatus === "detecting"
             ) {
                 return;
             }
 
-            beginObsSetupOperation();
+            beginObsSetupOperation(openSettings);
             control("detectobs");
         }
 
         function useSelectedObsTarget() {
             if (
                 !streamerBotConnected ||
+                obsSetupOperationToken ||
                 obsDetectionStatus === "detecting" ||
                 !selectedObsCandidateKey
             ) {
@@ -4494,8 +4949,27 @@
 
         obsSetupDetectButton.addEventListener(
             "click",
-            detectObsSetup
+            () => detectObsSetup()
         );
+
+        dependencyRetryButton.addEventListener("click", () => {
+            if (streamerBotConnected && !obsOperationStalled) {
+                detectObsSetup(false);
+            } else {
+                window.location.reload();
+            }
+        });
+
+        dependencySettingsButton.addEventListener("click", () => {
+            obsSetupOpen = true;
+            diagnosticsDismissed = false;
+            renderObsSetup();
+            if (streamerBotConnected && obsDetectionStatus === "ambiguous") {
+                obsSetupCandidateSelect.focus();
+            } else {
+                obsSetupCloseButton.focus();
+            }
+        });
 
         obsSetupCandidateSelect.addEventListener(
             "change",

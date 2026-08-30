@@ -5,6 +5,8 @@ using Newtonsoft.Json;
 
 public class CPHInline
 {
+    private const string BACKEND_VERSION = "1.0.0";
+
     private const string OBS_STATUS_UNKNOWN = "unknown";
     private const string OBS_STATUS_DETECTING = "detecting";
     private const string OBS_STATUS_READY = "ready";
@@ -170,6 +172,8 @@ public class CPHInline
 
     public bool Execute()
     {
+        CPH.SetArgument("reactBackendVersion", BACKEND_VERSION);
+
         // Used by a later If/Else + Run a Program sub-action to open the URL in the user's default browser.
         CPH.SetArgument("reactShouldOpenBrowser", false);
         CPH.SetArgument("reactBrowserUrl", "");
@@ -182,6 +186,17 @@ public class CPHInline
         }
 
         operation = operation.Trim().ToLowerInvariant();
+
+        if ((operation == "init" || operation == "detectobs" || operation == "setobstarget") &&
+            CPH.TryGetArg("reactControlToken", out string obsOperationToken) &&
+            !string.IsNullOrWhiteSpace(obsOperationToken))
+        {
+            // Bind version evidence to this execution, including after a downgrade.
+            CPH.SetGlobalVar("ReactPlayerBackendVersion", BACKEND_VERSION, false);
+            CPH.SetGlobalVar("ReactPlayerBackendVersionToken", obsOperationToken, false);
+            // Proves this operation is using receipt-capable Control code.
+            CPH.SetGlobalVar("ReactObsStartedToken", obsOperationToken, false);
+        }
 
         if (operation == "init")
         {
@@ -199,6 +214,7 @@ public class CPHInline
                 SetObsDependentStateUnavailable();
             }
 
+            CompleteObsSetupOperation();
             return true;
         }
 
@@ -216,6 +232,7 @@ public class CPHInline
                 SetObsDependentStateUnavailable();
             }
 
+            CompleteObsSetupOperation();
             return true;
         }
 
@@ -229,6 +246,7 @@ public class CPHInline
                     "[React Player] Invalid OBS target selection."
                 );
 
+                CompleteObsSetupOperation();
                 return false;
             }
 
@@ -242,6 +260,7 @@ public class CPHInline
                         "[React Player] The selected OBS target no longer matches the React Player source. Detect again."
                     );
 
+                    CompleteObsSetupOperation();
                     return false;
                 }
 
@@ -255,6 +274,7 @@ public class CPHInline
 
                 SyncVisibility();
                 SyncProjectorState();
+                CompleteObsSetupOperation();
                 return true;
             }
             catch (Exception ex)
@@ -267,6 +287,7 @@ public class CPHInline
                     ex.Message
                 );
 
+                CompleteObsSetupOperation();
                 return false;
             }
         }
@@ -1661,6 +1682,16 @@ public class CPHInline
             "null",
             false
         );
+    }
+
+    private void CompleteObsSetupOperation()
+    {
+        if (CPH.TryGetArg("reactControlToken", out string token) &&
+            !string.IsNullOrWhiteSpace(token))
+        {
+            // Lets the dock confirm completion even if ActionCompleted is lost.
+            CPH.SetGlobalVar("ReactObsCompletedToken", token, false);
+        }
     }
 
     private void EnsureObsGlobals()
