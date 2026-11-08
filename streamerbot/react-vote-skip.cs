@@ -188,8 +188,6 @@ public class CPHInline
                 true
             );
 
-            // Clear immediately so a second command cannot pass the same
-            // session again while the Skip helper action is running.
             CPH.SetGlobalVar(
                 "ReactVoteSkipSessionId",
                 "",

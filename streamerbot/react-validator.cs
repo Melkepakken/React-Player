@@ -103,7 +103,6 @@ public class CPHInline
 
     public bool Execute()
     {
-        // Metadata enrichment is best-effort. The request is queued first.
         CPH.SetArgument("reactMetadataPending", false);
         CPH.SetArgument("reactRequestId", "");
         CPH.SetArgument("reactMetadataUrl", "");
@@ -130,6 +129,7 @@ public class CPHInline
         CPH.SetArgument("reactTwitchClientId", "");
 
         CPH.SetArgument("reactSubmitSuccess", false);
+        CPH.SetArgument("reactQueueWasEmpty", false);
         CPH.SetArgument("reactSubmitErrorCode", "");
         CPH.SetArgument("reactSubmitError", "");
 
@@ -154,11 +154,14 @@ public class CPHInline
 
         CPH.TryGetArg("userId", out userId);
 
+        string commandId;
+        bool explicitRequest;
+        CPH.TryGetArg("reactExplicitRequest", out explicitRequest);
+        explicitRequest = explicitRequest || manualSubmit ||
+            (CPH.TryGetArg("commandId", out commandId) && !string.IsNullOrWhiteSpace(commandId));
+
         string input = "";
 
-        // Adapters can pass a clean URL through reactInput.
-        // Other triggers can provide rawInput, userInput, or message.
-        // Text around the first supported media link is allowed.
         if (!TryGetRequestInput(
                 out input))
         {
@@ -174,7 +177,7 @@ public class CPHInline
                     "Lim inn en YouTube-, Twitch Clip-, Medal- eller TikTok-lenke."
                 );
             }
-            else
+            else if (explicitRequest)
             {
                 SendInvalidMessage(user);
             }
@@ -199,7 +202,7 @@ public class CPHInline
                     "Du må sende inn en gyldig YouTube-, Twitch Clip-, Medal- eller TikTok-lenke."
                 );
             }
-            else
+            else if (explicitRequest)
             {
                 SendInvalidMessage(user);
             }
@@ -804,6 +807,7 @@ public class CPHInline
             AddedAt = DateTime.UtcNow.ToString("o")
         };
 
+        CPH.SetArgument("reactQueueWasEmpty", queue.Count == 0);
         queue.Add(request);
 
         SaveQueue(queue);
@@ -898,9 +902,6 @@ public class CPHInline
 
         if (provider == "youtube")
         {
-            // The video ID has already been extracted from the submitted URL,
-            // so we can safely build the encoded YouTube oEmbed target directly.
-            // Build the encoded oEmbed target directly for Streamer.bot compatibility.
             string metadataUrl =
                 "https://www.youtube.com/oembed?url=" +
                 "https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D" +
@@ -1178,9 +1179,6 @@ public class CPHInline
         }
         catch (Exception ex)
         {
-            // Medal metadata is intentionally best-effort.
-            // A valid queued request must survive even if Medal changes
-            // or temporarily refuses its public content response.
             CPH.LogWarn(
                 "[React Medal Metadata] Could not apply metadata: " +
                 ex.Message
@@ -1921,11 +1919,6 @@ public class CPHInline
 
         if (!isYouTube)
         {
-            // Future providers go here:
-            //
-            // TikTok
-            // Spotify
-            // etc.
             return false;
         }
 

@@ -1,1 +1,1 @@
-window.ReactPlayerVersion = "1.0.0";
+window.ReactPlayerVersion = "1.1.0";

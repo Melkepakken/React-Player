@@ -5,9 +5,30 @@
     const STORAGE_KEY = "reactPlayerLanguage";
     const LOCALE_ROOT = "/v1/locales/";
 
-    // English lives here as well as in en.json so a missing or blocked locale
-    // request can never leave the dock or player without usable copy.
     const ENGLISH_FALLBACK = Object.freeze({
+        "fallback.turnOn": "Turn fallback on",
+        "fallback.turnOff": "Turn fallback off",
+        "fallback.saved": "Saved!",
+        "fallback.addPlaylist": "Add a YouTube playlist",
+        "fallback.oneVideo": "1 video",
+        "fallback.videos": "{count} videos",
+        "fallback.upNext": "Up next",
+        "fallback.title": "Fallback playlist",
+        "fallback.shuffle": "Shuffle",
+        "fallback.randomStart": "Random start",
+        "fallback.save": "Save playlist",
+        "fallback.waiting": "Waiting",
+        "fallback.off": "Off",
+        "queuePlayback.title": "Queue playback",
+        "queuePlayback.firstRequest": "Automatically play the first request",
+        "queuePlayback.firstRequestHelp": "With Autoplay on, start playing as soon as someone adds a request to an empty queue.",
+        "queuePlayback.limit": "Playback limit in seconds (0 = unlimited)",
+        "queuePlayback.playlist": "YouTube playlist URL",
+        "queuePlayback.save": "Save settings",
+        "queuePlayback.failed": "Could not save playback settings.",
+        "queuePlayback.invalidPlaylist": "Enter a YouTube URL containing a playlist (list=...).",
+        "queuePlayback.updateRequired": "Connect to Streamer.bot and import the 1.1.0 update before saving these settings.",
+
         "language.selectorLabel": "Language",
         "creator.madeWithBy": "Made with ♥ by",
         "creator.twitchTitle": "Melkepakken on Twitch",
@@ -27,7 +48,7 @@
 
         "backendUpdate.available": "Streamer.bot update available",
         "backendUpdate.openPage": "Download update",
-        "backendUpdate.renamedAction": "Renamed React Player: Control? Rename it back first.",
+        "backendUpdate.renamedAction": "This update replaces existing settings in React Player's Streamer.bot actions. Check the actions after updating.",
 
         "settings.title": "Settings",
         "settings.open": "Open settings",
@@ -51,12 +72,12 @@
         "obsSetup.requiredUrl": "Required player URL",
         "obsSetup.selectTarget": "Choose an OBS target",
 
-        "playbackPreferences.title": "Playback preferences",
+        "playbackPreferences.title": "Playback settings",
         "playbackPreferences.description": "These settings are optional. Choose how each video service should handle captions, quality, volume and other player settings. Leave everything unchanged if it already works the way you want.",
         "playbackPreferences.provider": "Video service",
         "playbackPreferences.media": "Media",
         "playbackPreferences.noMedia": "Add a link from this service to the queue first.",
-        "playbackPreferences.stopCurrent": "Stop the current video before opening playback preferences.",
+        "playbackPreferences.stopCurrent": "Stop the current video before opening playback settings.",
         "playbackPreferences.instructions.youtube": "Choose your preferred captions, quality and other player settings.",
         "playbackPreferences.instructions.twitch": "1. 🔊 UNMUTE\n2. 🎚️ DRAG VOLUME\n3. ⚙️ CHANGE QUALITY\n\nDo all 3 so Twitch saves it.",
         "playbackPreferences.instructions.medal": "If a cookie message appears, make your preferred choice. Then choose the volume and quality you want.",
@@ -365,9 +386,6 @@
                     ? ENGLISH_FALLBACK
                     : {};
 
-                // The bundled English catalog is a complete locale even when
-                // en.json is unavailable. Other locales should remain
-                // retryable and make their English fallback explicit.
                 localeAvailable = language === DEFAULT_LANGUAGE;
 
                 console.warn(
@@ -471,8 +489,6 @@
             url.searchParams.set("lang", language);
             global.history.replaceState(null, "", url.toString());
         } catch (error) {
-            // The saved selection still provides persistence when URL updates
-            // are unavailable (for example, in a restricted browser source).
         }
     }
 
@@ -484,8 +500,6 @@
         try {
             global.localStorage.setItem(STORAGE_KEY, language);
         } catch (error) {
-            // Some privacy modes block storage. The current page can still be
-            // translated without persistence.
         }
 
         updateExistingLanguageQuery(language);

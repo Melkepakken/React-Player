@@ -54,10 +54,7 @@
             background: #000;
         }
 
-        /*
-         * This transparent layer owns pointer input while using OBS Interact.
-         * That prevents YouTube's own hover UI from appearing over the stream.
-         */
+
         #interactionSurface {
             position: absolute;
             inset: 0;
@@ -134,11 +131,7 @@
             cursor: pointer;
         }
 
-        /*
-         * Audio-only mode deliberately uses opacity instead of display:none.
-         * The embedded players remain loaded and active, so playback/audio
-         * continue while the Browser Source outputs transparent pixels.
-         */
+
         html.audio-only,
         html.audio-only body,
         html.audio-only #mediaRoot {
@@ -171,11 +164,7 @@
             text-align: center;
         }
 
-        /*
-         * Playback preferences use a completely separate, disposable embed.
-         * It intentionally sits above the normal player and its custom UI so
-         * providers can expose their own full controls through OBS Interact.
-         */
+
         #preferencePlayer {
             position: fixed;
             inset: 0;
@@ -233,6 +222,7 @@
         window.ReactPlayerActions;
 
     let streamerBotConnected = false;
+    let selectedPlayer = false;
     let client;
 
     client = new StreamerbotClient({
@@ -242,22 +232,24 @@
 
         onConnect: async () => {
             streamerBotConnected = true;
+            playbackSettingsReadAt = 0;
 
             try {
                 await reactActions.resolve(
                     client
                 );
 
-                // Initializes globals that may not exist yet after upgrading
-                // or after a Streamer.bot restart.
                 await reactActions.run(
                     client,
                     "control",
                     { operation: "init" }
                 );
 
+                await reactActions.run(client, "control", { operation: "playerconnected", playerUrl: location.href });
+
                 await syncFromStreamerBot();
                 await syncPlayerCommand();
+                if (!currentRequest) warmNextYouTubeVideo();
             } catch (error) {
                 console.error("React Player initialization failed:", error);
             }
@@ -269,6 +261,27 @@
 
         onError: (error) => {
             console.error("React Player Streamer.bot client error:", error);
+        }
+    });
+
+    client.on("Raw.ActionCompleted", async ({ data }) => {
+        if (reactActions.matches(data, "control") &&
+            ["init", "playbacksettings", "fallbackpower", "stop"].includes(String((data.arguments || {}).operation || "").toLowerCase())) {
+            playbackSettingsReadAt = 0;
+        }
+        if (!streamerBotConnected || !selectedPlayer || !reactActions.matches(data, "addLink")) return;
+        const args = data.arguments || {};
+        if (!parseBool(args.reactSubmitSuccess) || !args.reactRequestId) return;
+        warmNextYouTubeVideo();
+        try {
+            await reactActions.run(client, "control", {
+                operation: "requestadded",
+                playerUrl: location.href,
+                requestId: args.reactRequestId,
+                queueWasEmpty: parseBool(args.reactQueueWasEmpty)
+            });
+        } catch (error) {
+            console.error("Could not start the new request:", error);
         }
     });
 
@@ -302,9 +315,11 @@
     let pendingYouTubeLoad = null;
     let youtubeLoadSequence = 0;
     const youtubePolicyCache = new Map();
+    let youtubeWarmupBusy = false;
 
     let currentRequest = null;
     let loadedRequestId = "";
+    let playbackSession = "";
     let lastCommandNonce = "";
     let commandInitialized = false;
     let lastReportedState = "";
@@ -326,6 +341,66 @@
     let activeFallbackKey = "";
     let preferenceRequest = null;
     let pendingPreferenceCommand = null;
+    let playbackLimitSeconds = 0;
+    let playbackElapsed = 0;
+    let playbackTick = performance.now();
+    let playbackLimitReached = false;
+    let playlistVideoId = "";
+    let playlistCursor = { id: "", index: 0, seconds: 0, order: [], originalOrder: [], shuffle: false };
+    let fallbackShuffle = false;
+    let fallbackRandomStart = false;
+    let fallbackEnabled = false;
+    let fallbackStopped = false;
+    let playbackSettingsReadAt = 0;
+    let pendingPlaylistShuffle = false;
+    let pendingPlaylistStart = false;
+    let playlistStarting = false;
+    let pendingRandomStart = false;
+
+    function isPlaylist(request = currentRequest) {
+        return request && request.Provider === "youtube" && request.MediaType === "playlist";
+    }
+
+    function isCurrentYouTubePlaylist() {
+        try {
+            return new URL(ytPlayer.getVideoUrl()).searchParams.get("list") === currentRequest.ContentId;
+        } catch {
+            return false;
+        }
+    }
+
+    function resetPlaybackLimit() {
+        playbackElapsed = 0;
+        playbackTick = performance.now();
+        playbackLimitReached = false;
+    }
+
+    function checkPlaybackLimit() {
+        const now = performance.now();
+        if (currentRequest && lastReportedState === "playing" && !playbackLimitReached) {
+            playbackElapsed += (now - playbackTick) / 1000;
+        }
+        playbackTick = now;
+        if (!currentRequest || !playbackLimitSeconds || playbackLimitReached ||
+            playbackElapsed < playbackLimitSeconds) return;
+        playbackLimitReached = true;
+        if (isPlaylist() && ytPlayerReady) {
+            nextFallbackVideo();
+        } else {
+            stopMedia(false);
+            reportState("ended");
+        }
+    }
+
+    function nextFallbackVideo() {
+        if (!isPlaylist() || !ytPlayerReady) return;
+        playlistVideoId = "";
+        playlistStarting = true;
+        resetPlaybackLimit();
+        const playlist = ytPlayer.getPlaylist() || [];
+        const index = Number(ytPlayer.getPlaylistIndex() || 0);
+        ytPlayer.playVideoAt(playlist.length ? (index + 1) % playlist.length : 0);
+    }
 
     function translatePlayerText(key) {
         if (
@@ -344,8 +419,6 @@
                     return translated;
                 }
             } catch (error) {
-                // English fallbacks below keep localization failures isolated
-                // from Streamer.bot and player startup.
             }
         }
 
@@ -369,7 +442,6 @@
                         language;
                 }
             } catch (error) {
-                // Keep the static English document language on failure.
             }
         }
 
@@ -379,7 +451,6 @@
             try {
                 playerI18n.translateDocument(document);
             } catch (error) {
-                // Keep the static English aria labels on failure.
             }
         }
 
@@ -402,7 +473,6 @@
                     applyPlayerLocalization
                 );
             } catch (error) {
-                // Initialization below can still apply the first language.
             }
         }
 
@@ -482,6 +552,11 @@
     }
 
     async function reportState(state) {
+        if (!streamerBotConnected || !selectedPlayer) return;
+        if (playbackLimitReached && state !== "ended") {
+            if (state === "playing") pauseMedia();
+            return;
+        }
         if (state === lastReportedState) {
             return;
         }
@@ -494,7 +569,10 @@
                 "control",
                 {
                     operation: "playerstate",
-                    state: state
+                    playerUrl: location.href,
+                    state: state,
+                    sessionId: playbackSession,
+                    requestId: currentRequest ? currentRequest.Id : ""
                 }
             );
         } catch (error) {
@@ -509,6 +587,7 @@
     {
         if (
             !streamerBotConnected ||
+            !selectedPlayer ||
             !currentRequest
         ) {
             return;
@@ -520,6 +599,8 @@
                 "control",
                 {
                     operation: "telemetry",
+                    playerUrl: location.href,
+                    sessionId: playbackSession,
                     requestId:
                         currentRequest.Id || "",
                     currentTime:
@@ -553,37 +634,76 @@
     async function reportTelemetry() {
         if (
             !streamerBotConnected ||
-            telemetryBusy ||
+            !selectedPlayer ||
             !currentRequest ||
             currentProvider() !== "youtube" ||
             !ytPlayerReady ||
-            !ytPlayer
+            !ytPlayer || loadedRequestId !== currentRequest.Id
         ) {
             return;
         }
 
-        telemetryBusy = true;
+        let reporting = false;
 
         try {
-            const currentTime = Number(ytPlayer.getCurrentTime() || 0);
+            let currentTime = Number(ytPlayer.getCurrentTime() || 0);
             const duration = Number(ytPlayer.getDuration() || 0);
             const buffered = Number(ytPlayer.getVideoLoadedFraction() || 0);
+            const video = ytPlayer.getVideoData() || {};
+            if (!Number.isFinite(duration) || duration <= 0 || !video.video_id ||
+                (!isPlaylist() && video.video_id !== currentRequest.ContentId)) return;
+            const playlistOrderReady = !isPlaylist() ||
+                ytPlayer.getPlayerState() !== YT.PlayerState.PAUSED || playlistCursor.shuffle === fallbackShuffle;
+            if (isPlaylist()) {
+                if (!isCurrentYouTubePlaylist() || playlistStarting || pendingPlaylistShuffle ||
+                    ytPlayer.getPlayerState() === YT.PlayerState.ENDED) return;
+                if (playlistVideoId !== video.video_id) {
+                    playlistVideoId = video.video_id;
+                    pendingRandomStart = true;
+                    resetPlaybackLimit();
+                }
+                if (pendingRandomStart && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+                    pendingRandomStart = false;
+                    if (fallbackRandomStart) {
+                        currentTime = Math.floor(Math.random() * Math.max(0, duration - (playbackLimitSeconds || 1)));
+                        resetPlaybackLimit();
+                        ytPlayer.seekTo(currentTime, true);
+                    }
+                }
+                playlistCursor = {
+                    id: currentRequest.ContentId,
+                    index: Number(ytPlayer.getPlaylistIndex() || 0),
+                    seconds: currentTime,
+                    order: ytPlayer.getPlaylist() || [],
+                    originalOrder: playlistCursor.originalOrder,
+                    shuffle: playlistOrderReady ? fallbackShuffle : playlistCursor.shuffle
+                };
+            }
 
+            if (telemetryBusy) return;
+            telemetryBusy = true;
+            reporting = true;
             await reactActions.run(
                 client,
                 "control",
                 {
                     operation: "telemetry",
+                    playerUrl: location.href,
+                    sessionId: playbackSession,
                     requestId: currentRequest.Id || "",
                     currentTime: currentTime,
                     duration: duration,
-                    buffered: buffered
+                    buffered: buffered,
+                    videoId: isPlaylist() ? video.video_id || "" : "",
+                    nextVideoId: isPlaylist() && playlistOrderReady && playlistCursor.order[playlistCursor.index] === video.video_id
+                        ? playlistCursor.order[(playlistCursor.index + 1) % playlistCursor.order.length] : "",
+                    videoTitle: isPlaylist() ? video.title || "YouTube" : ""
                 }
             );
         } catch (error) {
             console.error("Could not report React Player telemetry:", error);
         } finally {
-            telemetryBusy = false;
+            if (reporting) telemetryBusy = false;
         }
     }
 
@@ -623,9 +743,39 @@
     }
 
     function onYouTubeStateChange(event) {
-        if (!currentRequest) {
+        if (!currentRequest || currentProvider() !== "youtube" || event.target !== ytPlayer) {
             return;
         }
+        if (isPlaylist() && !isCurrentYouTubePlaylist()) return;
+
+        if (isPlaylist() && event.data === YT.PlayerState.ENDED) {
+            playlistVideoId = "";
+            playlistStarting = true;
+            resetPlaybackLimit();
+            reportState("loading");
+            const playlist = ytPlayer.getPlaylist() || [];
+            if (playlist.length && ytPlayer.getPlaylistIndex() === playlist.length - 1) {
+                ytPlayer.playVideoAt(0);
+            }
+            return;
+        }
+        if (isPlaylist() && pendingPlaylistShuffle &&
+            (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED)) {
+            const order = ytPlayer.getPlaylist() || [];
+            if (order.length) {
+                playlistCursor.originalOrder = order.slice();
+                pendingPlaylistShuffle = false;
+                ytPlayer.setShuffle(fallbackShuffle);
+                if (pendingPlaylistStart) {
+                    pendingPlaylistStart = false;
+                    ytPlayer.playVideoAt(fallbackShuffle ? Math.floor(Math.random() * order.length) : 0);
+                    return;
+                }
+            }
+        }
+        const video = ytPlayer.getVideoData();
+        if (!isPlaylist() && video && video.video_id && video.video_id !== currentRequest.ContentId) return;
+        if (isPlaylist() && event.data === YT.PlayerState.PLAYING) playlistStarting = false;
 
         reportState(mapYouTubeState(event.data));
         reportTelemetry();
@@ -633,6 +783,7 @@
     }
 
     function onYouTubeError(event) {
+        if (event.target !== ytPlayer || !currentRequest || currentProvider() !== "youtube") return;
         console.error("YouTube player error:", event.data);
         reportState("error");
     }
@@ -649,11 +800,13 @@
         }
 
         const request = (async () => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 1500);
             try {
                 const response = await fetch(
                     "/api/youtube/video?id=" +
                     encodeURIComponent(cleanId),
-                    { cache: "no-store" }
+                    { signal: controller.signal }
                 );
 
                 if (!response.ok) {
@@ -687,14 +840,34 @@
                     error
                 );
 
-                // Fail toward the more privacy-protective host when the status
-                // cannot be checked. A later load can retry the status endpoint.
                 return { madeForKids: true, checked: false };
+            } finally {
+                clearTimeout(timeout);
             }
         })();
 
         youtubePolicyCache.set(cleanId, request);
         return request;
+    }
+
+    async function warmNextYouTubeVideo() {
+        if (!streamerBotConnected || !selectedPlayer || youtubeWarmupBusy) return;
+        youtubeWarmupBusy = true;
+        try {
+            const response = await client.getGlobal("ReactQueue", true);
+            if (!selectedPlayer) return;
+            const queue = parseJson(getGlobalValue(response), []);
+            const next = queue.find(request => request.Provider === "youtube" &&
+                request.MediaType !== "playlist" && request.Id !== (currentRequest && currentRequest.Id));
+            if (next) {
+                loadYouTubeApi();
+                getYouTubePolicy(next.ContentId);
+            }
+        } catch (error) {
+            console.warn("Could not prepare the next YouTube video:", error);
+        } finally {
+            youtubeWarmupBusy = false;
+        }
     }
 
     function loadYouTubeApi() {
@@ -709,7 +882,7 @@
         youtubeApiScript.addEventListener("error", () => {
             ytApiLoading = false;
             console.error("Could not load the YouTube IFrame API.");
-            reportState("error");
+            if (currentProvider() === "youtube") reportState("error");
         });
 
         document.head.appendChild(youtubeApiScript);
@@ -765,6 +938,13 @@
             origin: window.location.origin
         });
 
+        if (isPlaylist(request)) {
+            params.set("listType", "playlist");
+            params.set("list", request.ContentId);
+            params.set("loop", "1");
+            params.set("autoplay", "0");
+        }
+
         if (startSeconds > 0) {
             params.set("start", String(startSeconds));
         }
@@ -773,8 +953,8 @@
         iframe.id = "youtubePlayerFrame";
         iframe.src =
             host +
-            "/embed/" +
-            encodeURIComponent(request.ContentId) +
+            "/embed" +
+            (isPlaylist(request) ? "" : "/" + encodeURIComponent(request.ContentId)) +
             "?" +
             params.toString();
         iframe.title = "YouTube video player";
@@ -792,7 +972,8 @@
 
         ytPlayer = new YT.Player(iframe, {
             events: {
-                onReady: function () {
+                onReady: function (event) {
+                    if (event.target !== ytPlayer) return;
                     ytPlayerReady = true;
 
                     if (lastAppliedVolume >= 0) {
@@ -810,6 +991,8 @@
                             true,
                             pending.usePrivacyHost
                         );
+                    } else if (isPlaylist(request) && currentRequest && currentRequest.Id === request.Id) {
+                        loadYouTubePlaylist(request);
                     }
                 },
                 onStateChange: onYouTubeStateChange,
@@ -833,7 +1016,8 @@
             return;
         }
 
-        if (!ytPlayer || ytPlayerHost !== host) {
+        if (!ytPlayer || ytPlayerHost !== host ||
+            (isPlaylist(request) && playlistCursor.id !== request.ContentId)) {
             pendingYouTubeLoad = null;
             createYouTubePlayer(request, usePrivacyHost);
             return;
@@ -861,10 +1045,42 @@
         loadedRequestId = request.Id;
         reportState("loading");
 
+        if (isPlaylist(request)) {
+            loadYouTubePlaylist(request);
+            return;
+        }
+
+        ytPlayer.setLoop(false);
+
         ytPlayer.loadVideoById({
             videoId: request.ContentId,
             startSeconds
         });
+    }
+
+    function loadYouTubePlaylist(request) {
+        const resume = playlistCursor.id === request.ContentId;
+        const videoId = resume ? playlistCursor.order[playlistCursor.index] : "";
+        const originalIndex = resume ? playlistCursor.originalOrder.indexOf(videoId) : -1;
+        pendingPlaylistShuffle = true;
+        pendingPlaylistStart = !resume && fallbackShuffle;
+        playlistStarting = true;
+        playlistVideoId = videoId || "";
+        pendingRandomStart = !resume;
+        if (!resume) {
+            playlistCursor = { id: request.ContentId, index: 0, seconds: 0, order: [], originalOrder: [], shuffle: fallbackShuffle };
+        }
+        ytPlayer[pendingPlaylistStart ? "cuePlaylist" : "loadPlaylist"]({
+            listType: "playlist", list: request.ContentId,
+            index: Math.max(0, originalIndex), startSeconds: resume ? playlistCursor.seconds : 0
+        });
+        ytPlayer.setLoop(true);
+    }
+
+    async function getYouTubeHost(request) {
+        if (isPlaylist(request)) return "https://www.youtube.com";
+        const policy = await getYouTubePolicy(request.ContentId);
+        return policy.madeForKids ? "https://www.youtube-nocookie.com" : "https://www.youtube.com";
     }
 
     function showFallback(messageKey) {
@@ -919,7 +1135,6 @@
             parents.push(hostname);
         }
 
-        // Match the normal Twitch Clip embed's supported local hosts.
         if (!parents.includes("localhost")) {
             parents.push("localhost");
         }
@@ -974,32 +1189,29 @@
             closePreferencePlayer();
 
             console.warn(
-                "Playback preferences received unsupported media."
+                "Playback settings received unsupported media."
             );
 
             return;
         }
 
         let source = "";
-        let title = "Playback preferences";
+        let title = "Playback settings";
 
         if (provider === "youtube") {
             const startSeconds =
                 parseStartSeconds(url);
 
-            const policy =
-                await getYouTubePolicy(contentId);
-
-            const youtubeHost =
-                policy.madeForKids
-                    ? "https://www.youtube-nocookie.com"
-                    : "https://www.youtube.com";
+            const playlist = new URL(url).searchParams.get("list") === contentId;
+            const youtubeHost = await getYouTubeHost({
+                Provider: "youtube", MediaType: playlist ? "playlist" : "video", ContentId: contentId
+            });
 
             source =
                 youtubeHost +
-                "/embed/" +
-                encodeURIComponent(contentId) +
+                (playlist ? "/embed" : "/embed/" + encodeURIComponent(contentId)) +
                 "?autoplay=0" +
+                (playlist ? "&listType=playlist&list=" + encodeURIComponent(contentId) : "") +
                 "&controls=1" +
                 "&disablekb=0" +
                 "&enablejsapi=1" +
@@ -1019,7 +1231,7 @@
             }
 
             title =
-                "YouTube playback preferences";
+                "YouTube playback settings";
         } else if (provider === "twitch") {
             source =
                 "https://clips.twitch.tv/embed" +
@@ -1030,7 +1242,7 @@
                 "&autoplay=false";
 
             title =
-                "Twitch Clip playback preferences";
+                "Twitch Clip playback settings";
         } else if (provider === "medal") {
             source =
                 "https://medal.tv/clip/" +
@@ -1039,7 +1251,7 @@
                 "&loop=0";
 
             title =
-                "Medal playback preferences";
+                "Medal playback settings";
         } else {
             source =
                 "https://www.tiktok.com/player/v1/" +
@@ -1049,7 +1261,7 @@
                 "&controls=1";
 
             title =
-                "TikTok playback preferences";
+                "TikTok playback settings";
         }
 
         closePreferencePlayer();
@@ -1097,9 +1309,6 @@
     function requestPreferencePlayer(command) {
         pendingPreferenceCommand = command;
 
-        // Confirm ReactCurrent through the existing authoritative sync before
-        // showing the layer. This also avoids opening over a locally stale
-        // normal player immediately after it was stopped.
         syncFromStreamerBot();
     }
 
@@ -1131,9 +1340,6 @@
             return;
         }
 
-        // Twitch Clips expose no playback-ended JavaScript event.
-        // Start the timer when the official clip iframe finishes loading,
-        // with a small grace period for autoplay to actually begin.
         const delayMs =
             Math.round(
                 durationSeconds * 1000
@@ -1197,7 +1403,6 @@
         medalPlayer.style.display = "none";
         tiktokPlayer.style.display = "none";
 
-        // Twitch Clips do not expose our YouTube-style playback API.
         interactionSurface.style.display = "none";
     }
 
@@ -1207,7 +1412,6 @@
         medalPlayer.style.display = "block";
         tiktokPlayer.style.display = "none";
 
-        // Medal uses its own embedded player controls.
         interactionSurface.style.display = "none";
     }
 
@@ -1217,8 +1421,6 @@
         medalPlayer.style.display = "none";
         tiktokPlayer.style.display = "block";
 
-        // Leave the official TikTok iframe interactive so first-run cookie/
-        // quality preferences can still be changed via OBS Interact.
         interactionSurface.style.display = "none";
     }
 
@@ -1478,8 +1680,6 @@
             parents.push(hostname);
         }
 
-        // Useful for local OBS/Streamer.bot installs regardless of whether
-        // the browser source was entered as localhost or 127.0.0.1.
         if (!parents.includes("localhost")) {
             parents.push("localhost");
         }
@@ -1564,7 +1764,9 @@
         }
 
         const sequence = ++youtubeLoadSequence;
-        const policy = await getYouTubePolicy(request.ContentId);
+        pendingYouTubeLoad = null;
+        loadYouTubeApi();
+        const host = await getYouTubeHost(request);
 
         if (
             sequence !== youtubeLoadSequence ||
@@ -1577,7 +1779,7 @@
         performYouTubeLoad(
             request,
             forceReload,
-            policy.madeForKids
+            host === "https://www.youtube-nocookie.com"
         );
     }
 
@@ -1586,6 +1788,10 @@
             stopMedia();
             return;
         }
+
+        resetPlaybackLimit();
+        lastReportedState = "";
+        playlistVideoId = "";
 
         const provider = String(currentRequest.Provider || "").toLowerCase();
 
@@ -1649,6 +1855,12 @@
             return;
         }
 
+        if (playbackLimitReached) {
+            reactActions.run(client, "control", { operation: "play", id: currentRequest.Id })
+                .catch(error => console.error("Could not replay the request:", error));
+            return;
+        }
+
         if (
             currentProvider() === "youtube" &&
             ytPlayerReady &&
@@ -1663,7 +1875,9 @@
         }
     }
 
-    function stopMedia() {
+    function stopMedia(reportIdle = true) {
+        ++youtubeLoadSequence;
+        pendingYouTubeLoad = null;
         loadedRequestId = "";
         hideFallback();
         clearNonInteractiveEndTimer();
@@ -1680,7 +1894,7 @@
             }
         }
 
-        reportState("idle");
+        if (reportIdle) reportState("idle");
     }
 
     function clampVolume(value) {
@@ -1735,10 +1949,12 @@
             ytPlayer
         ) {
             try {
-                if (desiredMuted) {
-                    ytPlayer.mute();
-                } else {
-                    ytPlayer.unMute();
+                if (ytPlayer.isMuted() !== desiredMuted) {
+                    if (desiredMuted) {
+                        ytPlayer.mute();
+                    } else {
+                        ytPlayer.unMute();
+                    }
                 }
             } catch (error) {
                 console.warn(
@@ -1832,7 +2048,7 @@
         if (state === YT.PlayerState.PLAYING) {
             ytPlayer.pauseVideo();
         } else {
-            ytPlayer.playVideo();
+            playMedia();
         }
     }
 
@@ -2076,7 +2292,10 @@
                 break;
             case "load":
                 closePreferencePlayer();
-                loadCurrentMedia(true);
+                syncFromStreamerBot();
+                break;
+            case "nextfallback":
+                nextFallbackVideo();
                 break;
             case "pause":
                 pauseMedia();
@@ -2085,7 +2304,7 @@
                 playMedia();
                 break;
             case "stop":
-                stopMedia();
+                syncFromStreamerBot();
                 break;
             case "volume":
                 applyVolume(command.Value);
@@ -2125,6 +2344,13 @@
         }
     }
 
+    function normalizePlayerUrl(value) {
+        const url = String(value || "").trim().split("#")[0];
+        const query = url.indexOf("?");
+        return query < 0 ? url.replace(/\/+$/, "") :
+            url.slice(0, query).replace(/\/+$/, "") + url.slice(query);
+    }
+
     async function syncFromStreamerBot() {
         if (!streamerBotConnected || syncing) {
             return;
@@ -2133,12 +2359,47 @@
         syncing = true;
 
         try {
+            const refreshSettings = Date.now() - playbackSettingsReadAt >= 3000;
+            if (refreshSettings) playbackSettingsReadAt = Date.now();
             const responses = await Promise.all([
                 client.getGlobal(CURRENT_GLOBAL, true),
                 client.getGlobal(VOLUME_GLOBAL, true),
                 client.getGlobal(MUTED_GLOBAL, true),
-                client.getGlobal(VIDEO_HIDDEN_GLOBAL, true)
+                client.getGlobal(VIDEO_HIDDEN_GLOBAL, true),
+                client.getGlobal("ReactPlaybackSessionId", false).catch(() => null),
+                client.getGlobal("ReactObsSourceUrl", true).catch(() => null),
+                client.getGlobal("ReactObsDetectionStatus", true).catch(() => null),
+                ...(refreshSettings ? [
+                    client.getGlobal("ReactPlaybackSettings", true).catch(() => null),
+                    client.getGlobal("ReactFallbackEnabled", true).catch(() => null),
+                    client.getGlobal("ReactFallbackStopped", true).catch(() => null)
+                ] : [])
             ]);
+
+            const playbackSettings = refreshSettings ? parseJson(getGlobalValue(responses[7]), {}) || {} : null;
+            const nextShuffle = refreshSettings ? parseBool(playbackSettings.fallbackShuffle) : fallbackShuffle;
+            const shuffleChanged = fallbackShuffle !== nextShuffle;
+            fallbackShuffle = nextShuffle;
+            if (refreshSettings) {
+                playbackLimitSeconds = Math.max(0, Number(playbackSettings.limitSeconds || 0));
+                fallbackEnabled = parseBool(getGlobalValue(responses[8]));
+                fallbackRandomStart = parseBool(playbackSettings.fallbackRandomStart);
+                fallbackStopped = parseBool(getGlobalValue(responses[9]));
+            }
+            selectedPlayer = getGlobalValue(responses[6]) === "ready" &&
+                normalizePlayerUrl(getGlobalValue(responses[5])) === normalizePlayerUrl(location.href);
+            if (!selectedPlayer) {
+                if (currentRequest || preferenceRequest || pendingYouTubeLoad) {
+                    currentRequest = null;
+                    closePreferencePlayer();
+                    stopMedia(false);
+                    resetPlaybackLimit();
+                }
+                playbackSession = "";
+                lastReportedState = "";
+                commandInitialized = false;
+                return;
+            }
 
             const nextCurrent = parseJson(getGlobalValue(responses[0]), null);
             const volume = getGlobalValue(responses[1]);
@@ -2163,6 +2424,10 @@
 
             const oldId = currentRequest ? currentRequest.Id : "";
             const newId = nextCurrent ? nextCurrent.Id : "";
+            const nextSession = String(getGlobalValue(responses[4]) || "");
+            if (nextCurrent && !nextSession.startsWith(newId + ":")) return;
+            const sessionChanged = playbackSession !== nextSession;
+            playbackSession = nextSession;
 
             currentRequest = nextCurrent;
             applyVideoHiddenState();
@@ -2171,13 +2436,18 @@
                 closePreferencePlayer();
             }
 
-            if (oldId !== newId) {
+            if (oldId !== newId || (currentRequest && sessionChanged && nextSession)) {
                 if (currentRequest) {
                     loadCurrentMedia(true);
+                    warmNextYouTubeVideo();
                 } else {
+                    resetPlaybackLimit();
                     stopMedia();
                 }
             } else {
+                if (shuffleChanged && isPlaylist() && ytPlayerReady) {
+                    if (!pendingPlaylistShuffle) ytPlayer.setShuffle(fallbackShuffle);
+                }
                 applyDesiredMuteState();
             }
 
@@ -2194,9 +2464,12 @@
                     preferenceCommand
                 );
             }
+
+            if (!currentRequest && !preferenceRequest && !pendingPreferenceCommand &&
+                fallbackEnabled && !fallbackStopped && (refreshSettings || oldId !== newId)) {
+                await reactActions.run(client, "control", { operation: "fallback", playerUrl: location.href });
+            }
         } catch (error) {
-            // A request error is not the same thing as the WebSocket being
-            // disconnected. onDisconnect is the source of truth for that.
             console.error("React Player sync failed:", error);
         } finally {
             syncing = false;
@@ -2204,7 +2477,7 @@
     }
 
     async function syncPlayerCommand() {
-        if (!streamerBotConnected || commandSyncing) {
+        if (!streamerBotConnected || !selectedPlayer || commandSyncing) {
             return;
         }
 
@@ -2222,6 +2495,8 @@
                     getGlobalValue(response),
                     null
                 );
+
+            if (!selectedPlayer) return;
 
             if (command && command.Nonce) {
                 if (!commandInitialized) {
@@ -2264,7 +2539,8 @@
             if (
                 !message ||
                 message["x-tiktok-player"] !== true ||
-                currentProvider() !== "tiktok"
+                currentProvider() !== "tiktok" ||
+                !tiktokIframe || event.source !== tiktokIframe.contentWindow
             ) {
                 return;
             }
@@ -2384,6 +2660,7 @@
     setInterval(syncFromStreamerBot, 500);
     setInterval(updateTimeline, 250);
     setInterval(reportTelemetry, 500);
+    setInterval(checkPlaybackLimit, 250);
 </script>
 </body>
 </html>

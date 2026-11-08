@@ -48,7 +48,6 @@
                 cleanId
             );
         } catch (error) {
-            // The current page can still use the resolved ID.
         }
     }
 
@@ -228,7 +227,6 @@
                         );
                     }
                 } catch (resolveError) {
-                    // Name fallback below remains available.
                 }
             }
         }

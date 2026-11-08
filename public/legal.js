@@ -19,7 +19,6 @@
         try {
             window.localStorage.setItem(ACCEPTANCE_KEY, ACCEPTANCE_VERSION);
         } catch (error) {
-            // The download can still continue when storage is unavailable.
         }
     }
 

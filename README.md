@@ -35,6 +35,9 @@ React Player requires **OBS Studio** and **Streamer.bot**.
 - Audio-only mode and fullscreen projector
 - Automatic OBS Browser Source detection
 - English and Norwegian dock language
+- Optional now-playing command (`!song` / `!nowplaying`)
+- Continuous YouTube playlist playback while the viewer queue is empty, with optional shuffle and random start
+- Optional playback time limit and first-request autoplay
 
 ## How requests work
 

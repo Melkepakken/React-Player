@@ -74,6 +74,7 @@ export async function onRequestGet(context) {
         requestUrl.origin
     );
     cacheUrl.searchParams.set("id", videoId);
+    cacheUrl.searchParams.set("metadata", "1");
 
     const cacheKey = new Request(
         cacheUrl.toString(),
@@ -89,11 +90,11 @@ export async function onRequestGet(context) {
     const youtubeUrl = new URL(
         "https://www.googleapis.com/youtube/v3/videos"
     );
-    youtubeUrl.searchParams.set("part", "contentDetails,status");
+    youtubeUrl.searchParams.set("part", "snippet,contentDetails,status");
     youtubeUrl.searchParams.set("id", videoId);
     youtubeUrl.searchParams.set(
         "fields",
-        "items(contentDetails(duration),status(madeForKids))"
+        "items(snippet(title,channelTitle,thumbnails),contentDetails(duration),status(madeForKids))"
     );
 
     let youtubeResponse;
@@ -174,6 +175,7 @@ export async function onRequestGet(context) {
         ? {
             items: [
                 {
+                    snippet: item.snippet,
                     contentDetails: {
                         duration
                     },

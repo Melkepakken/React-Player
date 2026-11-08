@@ -66,7 +66,7 @@
             <div class="hero-copy">
                 <div class="product-line">
                     <h1>React Player</h1>
-                    <span class="product-version" data-current-version>v1.0.0</span>
+                    <span class="product-version" data-current-version>v1.1.0</span>
                 </div>
 
                 <p class="tagline">
@@ -206,14 +206,14 @@
                 <section class="feature-row">
                     <div class="feature-row-label">Playback</div>
                     <div class="feature-row-copy">
-                        Play / pause · seek · volume / mute · skip / stop · refresh · show / hide · audio-only · fullscreen · open or copy URL
+                        Play/pause · seek · volume · skip/stop · refresh · show/hide · audio-only · fullscreen · open/copy URL · time limit · fallback playlist · random start
                     </div>
                 </section>
 
                 <section class="feature-row">
                     <div class="feature-row-label">Control</div>
                     <div class="feature-row-copy">
-                        OBS control dock · automatic Browser Source detection · ready-made Streamer.bot actions · optional moderator commands · English / Norwegian
+                        OBS dock · auto source detection · Streamer.bot actions · optional mod commands · now-playing command · English / Norwegian
                     </div>
                 </section>
             </div>
@@ -365,6 +365,7 @@
                         <div class="guide-label">Chat scanner</div>
                         <h3>Scan normal chat for links</h3>
                         <p>Enable <strong>- React Player: Scan Chat</strong> and the chat trigger for each platform you want.</p>
+                        <div class="command-list">Multichat support · Exclude users</div>
                     </section>
 
                     <section class="extra-guide">
@@ -390,6 +391,13 @@
                         <div class="guide-label">Custom events</div>
                         <h3>Bits, subs, rewards and more</h3>
                         <p>Use the example triggers inside <strong>React Player: Add Link</strong>, or connect any Streamer.bot event that provides a link.</p>
+                    </section>
+
+                    <section class="extra-guide">
+                        <div class="guide-label">Fallback playlist</div>
+                        <h3>Loop a YouTube playlist between requests</h3>
+                        <p>Enable under <strong>Settings → Queue playback</strong> in the dock.</p>
+                        <div class="command-list">Shuffle · Random start (dice) · Time limit</div>
                     </section>
                 </div>
             </div>
@@ -473,7 +481,7 @@
 <script>
     "use strict";
 
-    const currentVersion = String(window.ReactPlayerVersion || "1.0.0").trim();
+    const currentVersion = String(window.ReactPlayerVersion || "1.1.0").trim();
 
     for (const element of document.querySelectorAll("[data-current-version]")) {
         element.textContent = "v" + currentVersion.replace(/^v/i, "");

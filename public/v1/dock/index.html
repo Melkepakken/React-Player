@@ -460,6 +460,18 @@
             font-weight: bold;
         }
 
+        #queuePlaybackForm { grid-template-columns: minmax(0, 1fr); }
+        #queuePlaybackForm input[type="url"],
+        #queuePlaybackForm input[type="number"] {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #4b4b54;
+            border-radius: 4px;
+            background: #18181b;
+            color: #efeff1;
+        }
+
         .playback-preferences-instructions,
         .playback-preferences-message {
             margin-top: 8px;
@@ -977,6 +989,11 @@
             padding: 8px;
         }
 
+        .fallback-card { margin-top: 7px; }
+        .fallback-card .request-actions svg { display: block; }
+        .fallback-card[hidden] { display: none; }
+        .fallback-card [hidden] { display: none; }
+
         .request-header {
             display: flex;
             align-items: center;
@@ -1224,11 +1241,11 @@
 
     <div id="backendUpdateNotice" class="backend-update-notice" role="status" aria-live="polite" hidden>
         <div class="backend-update-row">
-            <strong><span aria-hidden="true">🆕</span> <span data-i18n="backendUpdate.available">Streamer.bot update available</span></strong>
+            <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -3px;" aria-hidden="true" focusable="false"><path d="M3 11a9 9 0 0 1 15.4-6.4L21 7m0-4v4h-4M21 13a9 9 0 0 1-15.4 6.4L3 17m4 0H3v4"/></svg> <span data-i18n="backendUpdate.available">Streamer.bot update available</span></strong>
             <button id="backendUpdateButton" class="backend-update-download" type="button"
                 data-i18n="backendUpdate.openPage">Download update</button>
         </div>
-        <p class="backend-update-note" data-i18n="backendUpdate.renamedAction">Renamed React Player: Control? Rename it back first.</p>
+        <p class="backend-update-note" data-i18n="backendUpdate.renamedAction">This update replaces existing settings in React Player's Streamer.bot actions. Check the actions after updating.</p>
     </div>
 
     <div id="dependencyBlocker" class="dependency-blocker" hidden>
@@ -1288,9 +1305,28 @@
             </div>
         </section>
 
+        <section class="settings-section" aria-labelledby="queuePlaybackTitle">
+            <div id="queuePlaybackTitle" class="settings-section-title" data-i18n="queuePlayback.title">Queue playback</div>
+            <form id="queuePlaybackForm" class="playback-preferences-fields">
+                <div class="playback-preferences-field">
+                    <label><input id="fallbackEnabled" type="checkbox"> <span data-i18n="fallback.title">Fallback playlist</span></label>
+                </div>
+                <div class="playback-preferences-field">
+                    <label><input id="firstRequestAutoPlay" type="checkbox"> <span data-i18n="queuePlayback.firstRequest">Automatically play the first request</span></label>
+                    <p class="playback-preferences-description" data-i18n="queuePlayback.firstRequestHelp">With Autoplay on, start playing as soon as someone adds a request to an empty queue.</p>
+                </div>
+                <div class="playback-preferences-field">
+                    <label for="playbackLimitSeconds" data-i18n="queuePlayback.limit">Playback limit in seconds (0 = unlimited)</label>
+                    <input id="playbackLimitSeconds" type="number" min="0" max="2147483647" step="1" value="0" required>
+                </div>
+                <button id="saveQueuePlayback" type="submit" class="primary" data-i18n="queuePlayback.save">Save settings</button>
+                <div id="queuePlaybackStatus" role="status"></div>
+            </form>
+        </section>
+
         <section class="settings-section" aria-labelledby="playbackPreferencesTitle">
             <div id="playbackPreferencesTitle" class="settings-section-title" data-i18n="playbackPreferences.title">
-                Playback preferences</div>
+                Playback settings</div>
 
             <p class="playback-preferences-description" data-i18n="playbackPreferences.description">These settings are
                 optional. Choose how each video service should handle captions, quality, volume and other player
@@ -1459,6 +1495,51 @@
     </div>
 
     <div class="list" id="requestList"></div>
+    <form id="fallbackCard" class="request fallback-card" aria-labelledby="fallbackPlaylistTitle">
+        <div class="request-header">
+            <div class="request-title">
+                <strong id="fallbackPlaylistTitle"></strong>
+                <span class="creator-credit"><span class="creator-credit-separator">-</span> <em data-i18n="fallback.title">Fallback playlist</em></span>
+            </div>
+            <span id="fallbackState" class="request-meta"></span>
+        </div>
+        <div class="request-media">
+            <img id="fallbackThumbnail" class="request-thumbnail" alt="" hidden>
+            <div class="request-content">
+                <div id="fallbackMediaTitle" class="request-title collapsed" hidden></div>
+                <div id="fallbackChannel" class="request-author"></div>
+                <div class="request-meta-row">
+                    <span id="fallbackVideoCount" class="request-meta"></span>
+                    <span id="fallbackUpcoming" class="duration-badge duration-short" data-i18n="fallback.upNext" hidden>Up next</span>
+                </div>
+                <div class="request-actions">
+                    <button id="fallbackPower" type="button" class="danger" aria-pressed="false" aria-label="Turn fallback on" title="Turn fallback on">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9M6.3 5.7a9 9 0 1 0 11.4 0"/></svg>
+                    </button>
+                    <button id="fallbackShuffle" type="button" aria-pressed="false" data-i18n-aria-label="fallback.shuffle" data-i18n-title="fallback.shuffle" aria-label="Shuffle" title="Shuffle">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 3 3 3-3 3M3 18l6-6M3 6l12 12h6m-3-3 3 3-3 3M15 6h6m-6 0-3 3"/></svg>
+                    </button>
+                    <button id="fallbackRandomStart" type="button" aria-pressed="false" data-i18n-aria-label="fallback.randomStart" data-i18n-title="fallback.randomStart" aria-label="Random start" title="Random start">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Z"/><path d="m3 7 9 5 9-5M12 12v10"/><path d="m12 2 9 5-9 5-9-5Z" fill="currentColor" fill-opacity=".15" stroke="none"/><g fill="currentColor" stroke="none"><ellipse cx="12" cy="7" rx="1.6" ry=".9"/><ellipse cx="6.3" cy="11.2" rx=".85" ry="1.2" transform="rotate(-28 6.3 11.2)"/><ellipse cx="8.7" cy="17.3" rx=".85" ry="1.2" transform="rotate(-28 8.7 17.3)"/><ellipse cx="17.8" cy="11" rx=".85" ry="1.2" transform="rotate(28 17.8 11)"/><ellipse cx="16.5" cy="14.5" rx=".85" ry="1.2" transform="rotate(28 16.5 14.5)"/><ellipse cx="15.2" cy="18" rx=".85" ry="1.2" transform="rotate(28 15.2 18)"/></g></svg>
+                    </button>
+                    <button id="fallbackOpenUrl" type="button" data-i18n="controls.openUrl">Open URL</button>
+                    <button id="fallbackCopyUrl" type="button" data-i18n="controls.copyUrl">Copy URL</button>
+                    <button id="fallbackSettingsToggle" type="button" aria-controls="fallbackSettings" aria-expanded="false" data-i18n-aria-label="settings.title" data-i18n-title="settings.title" aria-label="Settings" title="Settings">⚙</button>
+                </div>
+                <div id="fallbackSettings" class="obs-setup-candidate-area" hidden>
+                    <div class="playback-preferences-field">
+                        <label for="fallbackPlaylistUrl" data-i18n="queuePlayback.playlist">YouTube playlist URL</label>
+                        <input id="fallbackPlaylistUrl" class="obs-setup-select" type="url" placeholder="https://www.youtube.com/playlist?list=...">
+                    </div>
+                    <div class="request-actions">
+                        <button id="saveFallbackPlaylist" type="submit" class="primary" data-i18n="fallback.save">Save playlist</button>
+                        <button id="fallbackPreferences" type="button" data-i18n="playbackPreferences.title">Playback settings</button>
+                    </div>
+                </div>
+                <div id="fallbackStatus" role="status"></div>
+            </div>
+        </div>
+    </form>
     <button class="clear" id="clearButton" data-i18n="queue.clear">Clear queue</button>
 
     <div class="utility-row">
@@ -1487,8 +1568,7 @@
         const GLOBAL_OBS_COMPLETED_TOKEN = "ReactObsCompletedToken";
         const GLOBAL_BACKEND_VERSION = "ReactPlayerBackendVersion";
         const GLOBAL_BACKEND_VERSION_TOKEN = "ReactPlayerBackendVersionToken";
-        // Bump only when the local Control backend changes, not hosted-only UI updates.
-        const LATEST_BACKEND_VERSION = "1.0.1";
+        const LATEST_BACKEND_VERSION = "1.1.0";
         const GLOBAL_OBS_SOURCE = "ReactObsSource";
         const GLOBAL_OBS_CONTAINER = "ReactObsContainer";
         const GLOBAL_OBS_CONTAINER_TYPE = "ReactObsContainerType";
@@ -1560,7 +1640,6 @@
                 try {
                     return helper.t(key, variables);
                 } catch (error) {
-                    // A localization problem must never block Streamer.bot.
                 }
             }
 
@@ -1577,7 +1656,6 @@
                 try {
                     return helper.getIntlLocale();
                 } catch (error) {
-                    // English remains the safe public fallback.
                 }
             }
 
@@ -1622,8 +1700,6 @@
                         return;
                     }
 
-                    // Create globals and wait for confirmed completion
-                    // before allowing another OBS detection operation.
                     await control("init");
 
                     try {
@@ -1709,6 +1785,13 @@
 
                 if (streamerBotConnected && reactActions.matches(data, "control")) {
                     confirmBackendVersion(args.reactBackendVersion);
+                    if (completedOperation === "fallbackpower" || completedOperation === "stop") loadLibraryState();
+                    if (completedOperation === "playbacksettings") {
+                        if (pendingControlTokens.has(String(args.reactControlToken || ""))) {
+                            finishPlaybackSettingsSave(args, parseBool(args.reactPlaybackSettingsSaved));
+                        }
+                        loadLibraryState();
+                    }
                 }
 
                 if (
@@ -1735,7 +1818,6 @@
                     loadPlaybackPreferencesState();
                 }
 
-                // Manual dock submission completion.
                 if (
                     manualSubmitToken &&
                     String(args.reactManualToken || "") ===
@@ -1780,7 +1862,6 @@
                     loadState();
                 }
 
-                // Dock control completion.
                 const controlToken =
                     String(args.reactControlToken || "");
 
@@ -1794,12 +1875,9 @@
                         args.operation
                     );
 
-                    // Now we know Streamer.bot actually finished the action.
                     loadState();
                 }
 
-                // Viewer/chat React requests should appear immediately when the
-                // full React action finishes, including metadata/duration.
                 if (
                     reactActions.matches(data, "addLink") &&
                     !args.reactManualToken
@@ -1905,6 +1983,47 @@
         const manualAddButton = document.getElementById("manualAddButton");
         const manualAddStatus = document.getElementById("manualAddStatus");
         const autoPlayToggle = document.getElementById("autoPlayToggle");
+        const queuePlaybackForm = document.getElementById("queuePlaybackForm");
+        const firstRequestAutoPlay = document.getElementById("firstRequestAutoPlay");
+        const playbackLimitSeconds = document.getElementById("playbackLimitSeconds");
+        const fallbackEnabled = document.getElementById("fallbackEnabled");
+        const fallbackPlaylistUrl = document.getElementById("fallbackPlaylistUrl");
+        const queuePlaybackStatus = document.getElementById("queuePlaybackStatus");
+        let queuePlaybackDirty = false;
+        const saveQueuePlayback = document.getElementById("saveQueuePlayback");
+        let queuePlaybackSavedTimeout = null;
+        const fallbackCard = document.getElementById("fallbackCard");
+        const fallbackShuffle = document.getElementById("fallbackShuffle");
+        const fallbackRandomStart = document.getElementById("fallbackRandomStart");
+        const fallbackSettings = document.getElementById("fallbackSettings");
+        const fallbackSettingsToggle = document.getElementById("fallbackSettingsToggle");
+        const fallbackStatus = document.getElementById("fallbackStatus");
+        const fallbackPreferences = document.getElementById("fallbackPreferences");
+        const fallbackState = document.getElementById("fallbackState");
+        let fallbackDirty = false;
+        let fallbackSaving = false;
+        let fallbackPlaylist = "";
+        let fallbackIsEnabled = false;
+        const fallbackPower = document.getElementById("fallbackPower");
+        const saveFallbackPlaylist = document.getElementById("saveFallbackPlaylist");
+        const fallbackThumbnail = document.getElementById("fallbackThumbnail");
+        const fallbackPlaylistTitle = document.getElementById("fallbackPlaylistTitle");
+        const fallbackChannel = document.getElementById("fallbackChannel");
+        const fallbackVideoCount = document.getElementById("fallbackVideoCount");
+        const fallbackUpcoming = document.getElementById("fallbackUpcoming");
+        const fallbackMediaTitle = document.getElementById("fallbackMediaTitle");
+        const fallbackOpenUrl = document.getElementById("fallbackOpenUrl");
+        const fallbackCopyUrl = document.getElementById("fallbackCopyUrl");
+        let fallbackStopped = false;
+        let fallbackShuffleEnabled = false;
+        let fallbackRandomStartEnabled = false;
+        let fallbackPreview = null;
+        let fallbackMetadataId = "";
+        let fallbackMetadata = null;
+        let fallbackVideoMetadataId = "";
+        let fallbackVideoMetadata = null;
+        const fallbackMetadataCache = new Map();
+        let fallbackSavedTimeout = null;
 
         let queue = [];
         let history = [];
@@ -2226,8 +2345,6 @@
             obsSetupBackendVersionRevision = backendVersionRevision;
             obsOperationWatchdogTimer = setTimeout(() => {
                 obsOperationWatchdogTimer = null;
-                // Do not submit another scan when completion is uncertain.
-                // Let the user reload the connection instead of waiting forever.
                 obsOperationStalled = true;
                 renderDependencyBlocker();
             }, 30000);
@@ -2266,7 +2383,6 @@
                 obsHasBeenReady = true;
                 obsRetryAttempt = 0;
             } else if (!obsGraceTimer && !obsBlocked) {
-                // Detection retries must not restart this grace period.
                 obsGraceTimer = setTimeout(() => {
                     obsGraceTimer = null;
                     obsBlocked = streamerBotConnected && !obsTargetReady();
@@ -2415,7 +2531,8 @@
                 obsCandidates.filter(isObsPlacementCandidate);
 
             const showCandidates =
-                obsDetectionStatus === "ambiguous";
+                obsDetectionStatus === "ambiguous" ||
+                (obsDetectionStatus === "ready" && placementCandidates.length > 1);
 
             obsSetupCandidateArea.hidden = !showCandidates;
             obsSetupUseSelectedButton.hidden = !showCandidates;
@@ -3134,6 +3251,8 @@
                     );
 
                 if (!optimisticHeld("current")) {
+                    if (remoteCurrent && remoteCurrent.MediaType === "playlist" &&
+                        remoteCurrent.OriginalUrl !== (current && current.OriginalUrl)) loadLibraryState();
                     current = remoteCurrent;
                 }
 
@@ -3185,8 +3304,28 @@
                 const responses = await Promise.all([
                     client.getGlobal(GLOBAL_QUEUE, true),
                     client.getGlobal(GLOBAL_HISTORY, true),
-                    client.getGlobal(GLOBAL_AUTOPLAY, true)
+                    client.getGlobal(GLOBAL_AUTOPLAY, true),
+                    client.getGlobal("ReactFirstRequestAutoPlay", true).catch(() => null),
+                    client.getGlobal("ReactPlaybackSettings", true).catch(() => null),
+                    client.getGlobal("ReactFallbackEnabled", true).catch(() => null),
+                    client.getGlobal("ReactFallbackPlaylist", true).catch(() => null),
+                    client.getGlobal("ReactFallbackStopped", true).catch(() => null),
+                    client.getGlobal("ReactFallbackPreview", false).catch(() => null)
                 ]);
+
+                const playbackSettings = parseJson(getGlobalValue(responses[4]), {}) || {};
+                if (!queuePlaybackDirty) {
+                    firstRequestAutoPlay.checked = parseBool(getGlobalValue(responses[3]));
+                    playbackLimitSeconds.value = Math.max(0, Number(playbackSettings.limitSeconds || 0));
+                    fallbackEnabled.checked = parseBool(getGlobalValue(responses[5]));
+                }
+                fallbackIsEnabled = parseBool(getGlobalValue(responses[5]));
+                fallbackPlaylist = String(getGlobalValue(responses[6]) || "");
+                fallbackShuffleEnabled = parseBool(playbackSettings.fallbackShuffle);
+                fallbackStopped = parseBool(getGlobalValue(responses[7]));
+                fallbackPreview = parseJson(getGlobalValue(responses[8]), null);
+                fallbackRandomStartEnabled = parseBool(playbackSettings.fallbackRandomStart);
+                if (!fallbackDirty) fallbackPlaylistUrl.value = fallbackPlaylist;
 
                 queue = parseJson(
                     getGlobalValue(responses[0]),
@@ -3289,7 +3428,7 @@
                 renderPlaybackPreferences();
             } catch (error) {
                 console.error(
-                    "React Player dock playback preferences sync failed:",
+                    "React Player dock playback settings sync failed:",
                     error
                 );
             } finally {
@@ -3319,8 +3458,6 @@
                 if (obsSetupOperationToken) {
                     const operationToken = obsSetupOperationToken;
                     const legacyFallbackAllowed = obsSetupLegacyFallbackAllowed;
-                    // A successful snapshot distinguishes absent legacy receipts
-                    // from a failed read, which must never release the lock.
                     const receipts = await client.getGlobals(false);
 
                     if (!streamerBotConnected || revision !== obsSetupRevision) {
@@ -3339,8 +3476,6 @@
                         if (obsSetupBackendVersionRevision === backendVersionRevision) {
                             const version = receipts.variables[GLOBAL_BACKEND_VERSION];
                             const versionToken = receipts.variables[GLOBAL_BACKEND_VERSION_TOKEN];
-                            // Earlier unversioned Control code also writes a start token.
-                            // Require this execution's version token, never a stale version alone.
                             confirmBackendVersion(versionToken && versionToken.value === operationToken && version
                                 ? version.value : "");
                         }
@@ -3351,12 +3486,7 @@
                         return;
                     }
 
-                    // New operations require exact completion. Legacy installs
-                    // resume polling only after the existing safety window.
-                    // In either case, fetch a fresh OBS state after releasing.
                     if (obsSetupBackendVersionRevision === backendVersionRevision) {
-                        // No version evidence from this execution: use the legacy notice.
-                        // A newer completion event or receipt always takes precedence.
                         confirmBackendVersion("");
                     }
                     finishObsSetupOperation();
@@ -3415,7 +3545,6 @@
                     error
                 );
                 if (streamerBotConnected && revision === obsSetupRevision) {
-                    // A failed read is not proof that an in-flight scan ended.
                     if (!obsSetupOperationToken) {
                         obsDetectionStatus = "error";
                     }
@@ -3477,10 +3606,10 @@
 
                 if (epoch !== connectionEpoch || !streamerBotConnected) {
                     pendingControlTokens.delete(controlToken);
+                    if (operation === "playbacksettings") finishPlaybackSettingsSave(extra, false);
                     return;
                 }
 
-                // Safety fallback in case ActionCompleted is ever missed.
                 setTimeout(() => {
                     if (
                         pendingControlTokens.has(
@@ -3490,6 +3619,7 @@
                         pendingControlTokens.delete(
                             controlToken
                         );
+                        if (operation === "playbacksettings") finishPlaybackSettingsSave(extra, false);
 
                         releaseOptimisticForOperation(
                             operation
@@ -3505,6 +3635,7 @@
                 }, 3000);
             } catch (error) {
                 pendingControlTokens.delete(controlToken);
+                if (operation === "playbacksettings") finishPlaybackSettingsSave(extra, false);
 
                 releaseOptimisticForOperation(
                     operation
@@ -3538,7 +3669,6 @@
                     }
                 );
             } catch (error) {
-                // Main polling will show disconnected state if Streamer.bot is unavailable.
             } finally {
                 syncBusy = false;
             }
@@ -3840,7 +3970,10 @@
             const requests = [];
             const seenRequestIds = new Set();
 
-            for (const library of [queue, history]) {
+            const fallbackRequests = fallbackPlaylist ? [{
+                Id: "fallback", Provider: "youtube", MediaType: "playlist", Title: t("fallback.title"), Url: fallbackPlaylist
+            }] : [];
+            for (const library of [queue, history, fallbackRequests]) {
                 if (!Array.isArray(library)) {
                     continue;
                 }
@@ -4001,7 +4134,8 @@
             playbackPreferencesCurrentSafety.textContent = t(
                 "playbackPreferences.stopCurrent"
             );
-            playbackPreferencesCurrentSafety.hidden = !current;
+            const canConfigureFallback = selectedPlaybackPreferencesRequestId === "fallback" && current && current.MediaType === "playlist";
+            playbackPreferencesCurrentSafety.hidden = !current || canConfigureFallback;
 
             playbackPreferencesOpenButton.textContent = t(
                 "playbackPreferences.openPlayer"
@@ -4016,7 +4150,7 @@
             playbackPreferencesOpenButton.disabled =
                 !streamerBotConnected ||
                 playbackPreferencesActive ||
-                !!current ||
+                (!!current && !canConfigureFallback) ||
                 !selectedPlaybackPreferencesRequestId;
 
             playbackPreferencesInteractButton.disabled =
@@ -4032,7 +4166,7 @@
             if (
                 !streamerBotConnected ||
                 playbackPreferencesActive ||
-                current
+                (current && !(selectedPlaybackPreferencesRequestId === "fallback" && current.MediaType === "playlist"))
             ) {
                 return;
             }
@@ -4787,6 +4921,7 @@
                     ? t("queue.clear")
                     : t("history.clear");
 
+            renderFallbackCard();
             renderAutoPlayToggle();
             renderCurrent();
             renderPlaybackPreferences();
@@ -4818,7 +4953,6 @@
                 try {
                     helper.translateDocument(document);
                 } catch (error) {
-                    // Dynamic rendering below still uses safe English fallbacks.
                 }
             }
 
@@ -4867,7 +5001,6 @@
                         initialization.catch(() => { });
                     }
                 } catch (error) {
-                    // Streamer.bot startup is deliberately independent of i18n.
                 }
             }
         }
@@ -5034,6 +5167,203 @@
             "click",
             toggleAutoPlayOptimistically
         );
+
+        function fallbackPlaylistId() {
+            try { return new URL(fallbackPlaylist).searchParams.get("list") || ""; }
+            catch { return ""; }
+        }
+
+        function fetchFallbackMetadata(kind, id) {
+            const key = kind + ":" + id;
+            if (!fallbackMetadataCache.has(key)) {
+                fallbackMetadataCache.set(key, fetch("/api/youtube/" + kind + "?id=" + encodeURIComponent(id), { cache: "no-store" })
+                    .then(response => response.ok ? response.json() : null)
+                    .then(payload => payload && payload.items && payload.items[0] || null)
+                    .catch(() => null));
+            }
+            return fallbackMetadataCache.get(key);
+        }
+
+        function renderFallbackCard() {
+            fallbackEnabled.disabled = !streamerBotConnected;
+            fallbackCard.hidden = activeTab !== "queue" || !fallbackIsEnabled;
+            const active = current && current.MediaType === "playlist";
+            fallbackState.textContent = t(active ? "request.playing" : fallbackStopped ? "fallback.off" : "fallback.waiting");
+            fallbackPower.disabled = !streamerBotConnected;
+            fallbackPower.className = fallbackStopped ? "danger" : "done";
+            fallbackPower.setAttribute("aria-pressed", String(!fallbackStopped));
+            const powerLabel = t(fallbackStopped ? "fallback.turnOn" : "fallback.turnOff");
+            fallbackPower.setAttribute("aria-label", powerLabel);
+            fallbackPower.title = powerLabel;
+            fallbackShuffle.disabled = !streamerBotConnected;
+            fallbackShuffle.className = fallbackShuffleEnabled ? "primary" : "";
+            fallbackRandomStart.disabled = !streamerBotConnected;
+            fallbackRandomStart.className = fallbackRandomStartEnabled ? "primary" : "";
+            fallbackRandomStart.setAttribute("aria-pressed", String(fallbackRandomStartEnabled));
+            fallbackOpenUrl.disabled = !streamerBotConnected || !fallbackPlaylist;
+            fallbackCopyUrl.disabled = !fallbackPlaylist;
+            fallbackShuffle.setAttribute("aria-pressed", String(fallbackShuffleEnabled));
+            fallbackPreferences.disabled = !streamerBotConnected || !fallbackPlaylist;
+            saveFallbackPlaylist.disabled = !streamerBotConnected || fallbackSaving;
+            if (fallbackCard.hidden) return;
+
+            const playlistId = fallbackPlaylistId();
+            if (playlistId !== fallbackMetadataId) {
+                fallbackMetadataId = playlistId;
+                fallbackMetadata = null;
+                if (playlistId) fetchFallbackMetadata("playlist", playlistId).then(item => {
+                    if (fallbackMetadataId === playlistId) { fallbackMetadata = item; renderFallbackCard(); }
+                });
+            }
+            const snippet = fallbackMetadata && fallbackMetadata.snippet;
+            const thumbnails = snippet && snippet.thumbnails;
+            const thumbnail = thumbnails && (thumbnails.medium || thumbnails.high || thumbnails.default);
+            fallbackPlaylistTitle.textContent = snippet && snippet.title || t(playlistId ? "fallback.title" : "fallback.addPlaylist");
+            const count = fallbackMetadata && fallbackMetadata.contentDetails && fallbackMetadata.contentDetails.itemCount;
+            fallbackVideoCount.textContent = ["YouTube", Number.isInteger(count) ? t(count === 1 ? "fallback.oneVideo" : "fallback.videos", { count }) : ""].filter(Boolean).join(" · ");
+
+            const preview = fallbackPreview && fallbackPreview.PlaylistId === playlistId ? fallbackPreview : null;
+            const videoId = preview ? (active ? preview.NextVideoId : preview.VideoId) || "" : "";
+            const validVideo = /^[A-Za-z0-9_-]{11}$/.test(videoId);
+            fallbackUpcoming.hidden = !validVideo;
+            if (videoId !== fallbackVideoMetadataId) {
+                fallbackVideoMetadataId = videoId;
+                fallbackVideoMetadata = null;
+                if (validVideo) fetchFallbackMetadata("video", videoId).then(item => {
+                    if (fallbackVideoMetadataId === videoId) { fallbackVideoMetadata = item; renderFallbackCard(); }
+                });
+            }
+            const video = validVideo && fallbackVideoMetadata && fallbackVideoMetadata.snippet;
+            const imageUrl = validVideo ? "https://i.ytimg.com/vi/" + videoId + "/mqdefault.jpg" : thumbnail && thumbnail.url;
+            fallbackThumbnail.hidden = !imageUrl;
+            if (imageUrl && fallbackThumbnail.getAttribute("src") !== imageUrl) fallbackThumbnail.src = imageUrl;
+            fallbackMediaTitle.hidden = !video || !video.title;
+            fallbackMediaTitle.textContent = video && video.title || "";
+            fallbackMediaTitle.title = fallbackMediaTitle.textContent;
+            fallbackChannel.textContent = (validVideo ? video && video.channelTitle : snippet && snippet.channelTitle) || "";
+        }
+
+        function finishPlaybackSettingsSave(args, saved) {
+            const playbackSettings = parseJson(args.playbackSettings, {}) || {};
+            if (args.firstRequest !== undefined || playbackSettings.limitSeconds !== undefined) {
+                if (firstRequestAutoPlay.checked === parseBool(args.firstRequest) &&
+                    Number(playbackLimitSeconds.value) === Number(playbackSettings.limitSeconds) &&
+                    fallbackEnabled.checked === parseBool(args.fallbackEnabled)) {
+                    queuePlaybackDirty = !saved;
+                }
+                queuePlaybackStatus.textContent = saved ? "" : t("queuePlayback.failed");
+                clearTimeout(queuePlaybackSavedTimeout);
+                saveQueuePlayback.textContent = t(saved ? "fallback.saved" : "queuePlayback.save");
+                if (saved) queuePlaybackSavedTimeout = setTimeout(() => {
+                    saveQueuePlayback.textContent = t("queuePlayback.save");
+                }, 2000);
+                return;
+            }
+            fallbackStatus.textContent = saved ? "" : t("queuePlayback.failed");
+            if (args.fallbackUrl === undefined) return;
+            clearTimeout(fallbackSavedTimeout);
+            fallbackSaving = false;
+            fallbackDirty = !saved;
+            saveFallbackPlaylist.textContent = t(saved ? "fallback.saved" : "fallback.save");
+            if (saved) fallbackSavedTimeout = setTimeout(() => {
+                saveFallbackPlaylist.textContent = t("fallback.save");
+            }, 2000);
+            renderFallbackCard();
+        }
+
+        queuePlaybackForm.addEventListener("input", () => {
+            queuePlaybackDirty = true;
+            queuePlaybackStatus.textContent = "";
+        });
+
+        queuePlaybackForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            if (!streamerBotConnected || !installedBackendVersion ||
+                backendUpdateAvailable(installedBackendVersion, LATEST_BACKEND_VERSION)) {
+                queuePlaybackStatus.textContent = t("queuePlayback.updateRequired");
+                return;
+            }
+            clearTimeout(queuePlaybackSavedTimeout);
+            saveQueuePlayback.textContent = t("queuePlayback.save");
+            await control("playbacksettings", "", {
+                fallbackEnabled: fallbackEnabled.checked,
+                firstRequest: firstRequestAutoPlay.checked,
+                playbackSettings: JSON.stringify({ limitSeconds: Number(playbackLimitSeconds.value) })
+            });
+        });
+
+        fallbackCard.addEventListener("input", () => {
+            fallbackDirty = true;
+            fallbackStatus.textContent = "";
+            fallbackPlaylistUrl.setCustomValidity("");
+        });
+
+        async function saveFallbackSettings() {
+            if (fallbackSaving) return;
+            if (!streamerBotConnected || !installedBackendVersion ||
+                backendUpdateAvailable(installedBackendVersion, LATEST_BACKEND_VERSION)) {
+                fallbackStatus.textContent = t("queuePlayback.updateRequired");
+                return;
+            }
+            let playlistId = "";
+            const value = fallbackPlaylistUrl.value.trim();
+            try {
+                const url = new URL(value);
+                if (["https:", "http:"].includes(url.protocol) &&
+                    ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"].includes(url.hostname)) {
+                    const list = url.searchParams.get("list") || "";
+                    if (/^[a-zA-Z0-9_-]+$/.test(list)) playlistId = list;
+                }
+            } catch (error) {}
+            if (value && !playlistId) {
+                if (fallbackSettings.hidden) fallbackSettingsToggle.click();
+                fallbackPlaylistUrl.setCustomValidity(t("queuePlayback.invalidPlaylist"));
+                fallbackPlaylistUrl.reportValidity();
+                return;
+            }
+            fallbackSaving = true;
+            clearTimeout(fallbackSavedTimeout);
+            saveFallbackPlaylist.textContent = t("fallback.save");
+            fallbackStatus.textContent = "";
+            renderFallbackCard();
+            await control("playbacksettings", "", {
+                fallbackUrl: playlistId ? "https://www.youtube.com/playlist?list=" + playlistId : ""
+            });
+        }
+
+        fallbackCard.addEventListener("submit", event => {
+            event.preventDefault();
+            saveFallbackSettings();
+        });
+        fallbackPower.addEventListener("click", () => {
+            fallbackStopped = !fallbackStopped;
+            renderFallbackCard();
+            control("fallbackpower", "", { enabled: !fallbackStopped });
+        });
+        fallbackShuffle.addEventListener("click", () => {
+            fallbackShuffleEnabled = !fallbackShuffleEnabled;
+            renderFallbackCard();
+            control("playbacksettings", "", { playbackSettings: JSON.stringify({ fallbackShuffle: fallbackShuffleEnabled }) });
+        });
+        fallbackRandomStart.addEventListener("click", () => {
+            fallbackRandomStartEnabled = !fallbackRandomStartEnabled;
+            renderFallbackCard();
+            control("playbacksettings", "", { playbackSettings: JSON.stringify({ fallbackRandomStart: fallbackRandomStartEnabled }) });
+        });
+        fallbackSettingsToggle.addEventListener("click", () => {
+            fallbackSettings.hidden = !fallbackSettings.hidden;
+            fallbackSettingsToggle.setAttribute("aria-expanded", String(!fallbackSettings.hidden));
+        });
+        fallbackOpenUrl.addEventListener("click", () => control("browser", "fallback"));
+        fallbackCopyUrl.addEventListener("click", () => copyRequestUrl({ Url: fallbackPlaylist }, fallbackCopyUrl));
+        fallbackPreferences.addEventListener("click", () => {
+            selectedPlaybackPreferencesProvider = "youtube";
+            selectedPlaybackPreferencesRequestId = "fallback";
+            obsSetupOpen = true;
+            renderObsSetup();
+            renderPlaybackPreferences();
+            playbackPreferencesProviderSelect.scrollIntoView({ block: "center" });
+        });
 
         manualAddButton.addEventListener(
             "click",
@@ -5474,22 +5804,14 @@
         initializeLocalization();
         startInitialConnectionDiagnosticTimer();
 
-        // Playback state stays responsive.
         setInterval(loadPlaybackState, 250);
 
-        // Queue/history changes are event-driven in normal use.
-        // This slower fallback catches external/manual edits and missed events.
         setInterval(loadLibraryState, 3000);
 
-        // Preference mode is temporary and may be closed by normal playback.
         setInterval(loadPlaybackPreferencesState, 1000);
 
-        // OBS setup changes rarely, so keep its seven persistent globals on the
-        // slower fallback rather than adding them to the responsive playback poll.
         setInterval(loadObsSetupState, 3000);
 
-        // OBS visibility/projector state is authoritative and can be changed
-        // outside this dock, so reconcile against OBS periodically.
         setInterval(syncVisibility, 1500);
     </script>
 </body>

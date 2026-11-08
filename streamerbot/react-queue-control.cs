@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 public class CPHInline
 {
-    private const string BACKEND_VERSION = "1.0.1";
+    private const string BACKEND_VERSION = "1.1.0";
 
     private const string OBS_STATUS_UNKNOWN = "unknown";
     private const string OBS_STATUS_DETECTING = "detecting";
@@ -18,8 +18,6 @@ public class CPHInline
     private const string OBS_CONTAINER_SCENE = "scene";
     private const string OBS_CONTAINER_GROUP = "group";
 
-    // OBS does not currently expose a close-projector WebSocket request.
-    // On Windows, close the specific React Player projector window directly.
     private const uint WM_CLOSE = 0x0010;
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -174,7 +172,6 @@ public class CPHInline
     {
         CPH.SetArgument("reactBackendVersion", BACKEND_VERSION);
 
-        // Used by a later If/Else + Run a Program sub-action to open the URL in the user's default browser.
         CPH.SetArgument("reactShouldOpenBrowser", false);
         CPH.SetArgument("reactBrowserUrl", "");
 
@@ -191,17 +188,13 @@ public class CPHInline
             CPH.TryGetArg("reactControlToken", out string obsOperationToken) &&
             !string.IsNullOrWhiteSpace(obsOperationToken))
         {
-            // Bind version evidence to this execution, including after a downgrade.
             CPH.SetGlobalVar("ReactPlayerBackendVersion", BACKEND_VERSION, false);
             CPH.SetGlobalVar("ReactPlayerBackendVersionToken", obsOperationToken, false);
-            // Proves this operation is using receipt-capable Control code.
             CPH.SetGlobalVar("ReactObsStartedToken", obsOperationToken, false);
         }
 
         if (operation == "init")
         {
-            // Initialization is deliberately done only here.
-            // High-frequency operations such as telemetry should stay lean.
             EnsureGlobals();
 
             if (InitializeObsTarget())
@@ -264,13 +257,13 @@ public class CPHInline
                     return false;
                 }
 
-                SaveReadyObsTarget(
-                    validatedTarget,
-                    new List<ObsTargetCandidate>
-                    {
-                        validatedTarget
-                    }
-                );
+                SetObsTargetFields(validatedTarget);
+                if (!DetectObsTarget(true))
+                {
+                    SetObsDependentStateUnavailable();
+                    CompleteObsSetupOperation();
+                    return false;
+                }
 
                 SyncVisibility();
                 SyncProjectorState();
@@ -292,8 +285,6 @@ public class CPHInline
             }
         }
 
-        // Lightweight operations first. The dock calls "sync" regularly,
-        // so avoid loading/parsing the queue and history unless needed.
         if (operation == "sync")
         {
             SyncVisibility();
@@ -303,6 +294,10 @@ public class CPHInline
 
         if (operation == "playerstate")
         {
+            MediaRequest reportedCurrent = LoadCurrent();
+            if (!IsCurrentPlayerReport(reportedCurrent))
+                return true;
+
             if (CPH.TryGetArg("state", out string state) &&
                 !string.IsNullOrWhiteSpace(state))
             {
@@ -319,13 +314,120 @@ public class CPHInline
                 {
                     EndPlaybackSession();
 
-                    if (IsAutoPlayEnabled())
+                    if (IsAutoPlayEnabled() ||
+                        (FallbackEnabled() && LoadList("ReactQueue").TrueForAll(
+                            item => reportedCurrent != null && item.Id == reportedCurrent.Id)))
                     {
                         AdvanceQueue("Autoplay");
                     }
                 }
             }
 
+            return true;
+        }
+
+        if (operation == "playbacksettings")
+        {
+            CPH.SetArgument("reactPlaybackSettingsSaved", false);
+            string playlistUrl;
+            bool fallbackEnabled;
+            bool firstRequest;
+            if (!CPH.TryGetArg("fallbackUrl", out playlistUrl))
+                playlistUrl = CPH.GetGlobalVar<string>("ReactFallbackPlaylist", true);
+            if (!CPH.TryGetArg("fallbackEnabled", out fallbackEnabled))
+                fallbackEnabled = CPH.GetGlobalVar<bool>("ReactFallbackEnabled", true);
+            if (!CPH.TryGetArg("firstRequest", out firstRequest))
+                firstRequest = CPH.GetGlobalVar<bool>("ReactFirstRequestAutoPlay", true);
+            string playlistId = ParsePlaylistId(playlistUrl);
+            if (!string.IsNullOrWhiteSpace(playlistUrl) && playlistId == "")
+                return false;
+
+            Dictionary<string, object> browserSettings = null;
+            if (CPH.TryGetArg("playbackSettings", out string settingsJson))
+            {
+                try
+                {
+                    var changes = JsonConvert.DeserializeObject<Dictionary<string, object>>(settingsJson);
+                    if (changes == null) return false;
+                    browserSettings = LoadBrowserPlaybackSettings();
+                    foreach (var setting in changes)
+                        browserSettings[setting.Key] = setting.Value;
+                }
+                catch (JsonException) { return false; }
+            }
+
+            CPH.SetGlobalVar("ReactFallbackPlaylist", playlistId == "" ? "" :
+                "https://www.youtube.com/playlist?list=" + playlistId, true);
+            CPH.SetGlobalVar("ReactFallbackEnabled", fallbackEnabled, true);
+            CPH.SetGlobalVar("ReactFirstRequestAutoPlay", firstRequest, true);
+            if (browserSettings != null)
+                CPH.SetGlobalVar("ReactPlaybackSettings", JsonConvert.SerializeObject(browserSettings), true);
+            MediaRequest fallbackCurrent = LoadCurrent();
+            if (IsFallback(fallbackCurrent) &&
+                (!fallbackEnabled || fallbackCurrent.ContentId != playlistId))
+                StopCurrent();
+            TryStartFallback();
+            CPH.SetArgument("reactPlaybackSettingsSaved", true);
+            return true;
+        }
+
+        if (operation == "fallbackpower")
+        {
+            bool enabled;
+            if (!CPH.TryGetArg("enabled", out enabled)) return false;
+            CPH.SetGlobalVar("ReactFallbackStopped", !enabled, true);
+            if (!enabled && IsFallback(LoadCurrent())) StopCurrent();
+            if (enabled) TryStartFallback();
+            return true;
+        }
+
+        if (operation == "fallback")
+        {
+            if (!IsSelectedPlayer()) return true;
+            TryStartFallback();
+            return true;
+        }
+
+        if (operation == "playerconnected")
+        {
+            if (!IsSelectedPlayer()) return true;
+            CPH.SetGlobalVar("ReactFallbackPreview", "", false);
+            if (IsAutoPlayEnabled() && IsFallback(LoadCurrent()) && LoadList("ReactQueue").Count > 0)
+                StopCurrent();
+            return true;
+        }
+
+        if (operation == "requestadded")
+        {
+            if (!IsSelectedPlayer()) return true;
+            string addedId;
+            bool wasEmpty;
+            CPH.TryGetArg("requestId", out addedId);
+            CPH.TryGetArg("queueWasEmpty", out wasEmpty);
+            List<MediaRequest> addedQueue = LoadList("ReactQueue");
+            MediaRequest beforeRequest = LoadCurrent();
+            if (addedQueue.Count == 0 || addedQueue[0].Id != addedId)
+                return true;
+            if (IsAutoPlayEnabled() && (IsFallback(beforeRequest) ||
+                (beforeRequest == null && wasEmpty &&
+                    CPH.GetGlobalVar<bool>("ReactFirstRequestAutoPlay", true))))
+                PlayRequest(addedQueue[0]);
+            return true;
+        }
+
+        if (operation == "nowplaying")
+        {
+            MediaRequest playing = LoadCurrent();
+            string state = CPH.GetGlobalVar<string>("ReactPlayerState", true);
+            string language;
+            CPH.TryGetArg("reactChatLanguage", out language);
+            bool norwegian = language == "no" || language == "nb" || language == "nn";
+            string message = norwegian ? "Ingenting spilles akkurat nå." : "Nothing is playing right now.";
+            if (playing != null && (state == "playing" || state == "paused" || state == "loading"))
+                message = (norwegian ? "Spiller nå: " : "Now playing: ") +
+                    (string.IsNullOrWhiteSpace(playing.Title) ? playing.Provider : playing.Title) +
+                    " " + (playing.OriginalUrl ?? playing.Url);
+            SendPlatformChatMessage(message);
             return true;
         }
 
@@ -345,8 +447,6 @@ public class CPHInline
                 (nextAutoPlay ? "ON" : "OFF")
             );
 
-            // If autoplay is enabled after the current item has already ended,
-            // advance immediately instead of waiting for another state event.
             if (nextAutoPlay)
             {
                 string playerState =
@@ -400,6 +500,8 @@ public class CPHInline
         if (operation == "telemetry")
         {
             MediaRequest currentForTelemetry = LoadCurrent();
+            if (!IsCurrentPlayerReport(currentForTelemetry))
+                return true;
 
             if (currentForTelemetry == null)
             {
@@ -418,6 +520,43 @@ public class CPHInline
                 currentForTelemetry.Id != requestId)
             {
                 return true;
+            }
+
+            double reportedDuration;
+            if (currentForTelemetry.Provider == "youtube" &&
+                (!CPH.TryGetArg("duration", out reportedDuration) ||
+                 double.IsNaN(reportedDuration) || double.IsInfinity(reportedDuration) || reportedDuration <= 0))
+                return true;
+
+            if (IsFallback(currentForTelemetry))
+            {
+                string videoId;
+                string title;
+                if (!CPH.TryGetArg("videoId", out videoId) ||
+                    !IsYouTubeId(videoId) || videoId.Length != 11)
+                    return true;
+                string nextVideoId;
+                CPH.TryGetArg("nextVideoId", out nextVideoId);
+                if (!IsYouTubeId(nextVideoId) || nextVideoId.Length != 11) nextVideoId = "";
+                string preview = JsonConvert.SerializeObject(new {
+                    PlaylistId = currentForTelemetry.ContentId,
+                    VideoId = videoId,
+                    NextVideoId = nextVideoId
+                });
+                if (CPH.GetGlobalVar<string>("ReactFallbackPreview", false) != preview)
+                    CPH.SetGlobalVar("ReactFallbackPreview", preview, false);
+                CPH.TryGetArg("videoTitle", out title);
+                string videoUrl = "https://www.youtube.com/watch?v=" + videoId;
+                if (currentForTelemetry.OriginalUrl != videoUrl || currentForTelemetry.Title != title)
+                {
+                    if (currentForTelemetry.OriginalUrl != videoUrl)
+                        ResetVoteSkipSession();
+                    currentForTelemetry.OriginalUrl = videoUrl;
+                    currentForTelemetry.Title = title;
+                    currentForTelemetry.ThumbnailUrl = "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg";
+                    currentForTelemetry.DurationSeconds = 0;
+                    SaveCurrent(currentForTelemetry);
+                }
             }
 
             double currentTime = 0;
@@ -689,9 +828,6 @@ public class CPHInline
 
                 if (closeSent)
                 {
-                    // WM_CLOSE is asynchronous. Updating the global immediately
-                    // keeps the dock responsive; the regular sync remains the
-                    // authoritative safety net if OBS refuses to close it.
                     CPH.SetGlobalVar(
                         "ReactPlayerProjectorOpen",
                         false,
@@ -735,9 +871,6 @@ public class CPHInline
                 return false;
             }
 
-            // The projector window is created by OBS on its UI thread.
-            // Mark it open immediately for responsive UI; the regular sync
-            // corrects this against the real window state every two seconds.
             CPH.SetGlobalVar(
                 "ReactPlayerProjectorOpen",
                 true,
@@ -858,17 +991,8 @@ public class CPHInline
 
         if (operation == "stop")
         {
-            SaveCurrent(null);
-            EndPlaybackSession();
-            ClearTelemetry();
-
-            CPH.SetGlobalVar(
-                "ReactPlayerState",
-                "idle",
-                true
-            );
-
-            SendPlayerCommand("stop");
+            CPH.SetGlobalVar("ReactFallbackStopped", true, true);
+            StopCurrent();
             return true;
         }
 
@@ -892,8 +1016,6 @@ public class CPHInline
             MediaRequest currentForClear = LoadCurrent();
             List<MediaRequest> nextQueue = new List<MediaRequest>();
 
-            // Keep the item currently being watched so "Ferdig" can still
-            // move it into history after the rest of the queue is cleared.
             if (currentForClear != null)
             {
                 MediaRequest queuedCurrent = FindInList(
@@ -956,12 +1078,9 @@ public class CPHInline
         List<MediaRequest> history = LoadList("ReactHistory");
         MediaRequest current = LoadCurrent();
 
-        MediaRequest request = FindRequest(
-            id,
-            current,
-            queue,
-            history
-        );
+        MediaRequest request = operation == "browser" && id == "fallback"
+            ? CreateFallbackRequest()
+            : FindRequest(id, current, queue, history);
 
         if (request == null)
         {
@@ -1162,10 +1281,32 @@ public class CPHInline
         return false;
     }
 
+    private Dictionary<string, object> LoadBrowserPlaybackSettings()
+    {
+        string json = CPH.GetGlobalVar<string>("ReactPlaybackSettings", true);
+        if (!string.IsNullOrWhiteSpace(json))
+            return JsonConvert.DeserializeObject<Dictionary<string, object>>(json) ?? new Dictionary<string, object>();
+
+        var settings = new Dictionary<string, object> {
+            { "fallbackShuffle", CPH.GetGlobalVar<bool>("ReactFallbackShuffle", true) },
+            { "fallbackRandomStart", CPH.GetGlobalVar<bool>("ReactFallbackRandomStart", true) },
+            { "limitSeconds", CPH.GetGlobalVar<int>("ReactPlaybackLimitSeconds", true) }
+        };
+        CPH.SetGlobalVar("ReactPlaybackSettings", JsonConvert.SerializeObject(settings), true);
+        return settings;
+    }
+
     private void EnsureGlobals()
     {
         EnsureObsGlobals();
         EnsurePlaybackPreferencesGlobals();
+
+        foreach (string key in new[] { "ReactFallbackEnabled", "ReactFallbackStopped", "ReactFirstRequestAutoPlay" })
+            if (!CPH.GetGlobalVar<bool?>(key, true).HasValue)
+                CPH.SetGlobalVar(key, false, true);
+        LoadBrowserPlaybackSettings();
+        if (CPH.GetGlobalVar<string>("ReactFallbackPlaylist", true) == null)
+            CPH.SetGlobalVar("ReactFallbackPlaylist", "", true);
 
         string queue = CPH.GetGlobalVar<string>(
             "ReactQueue",
@@ -1266,8 +1407,6 @@ public class CPHInline
             }
         }
 
-        // 0 is a valid user-selected volume. Only initialize the variable
-        // if it does not exist yet.
         string playerVolumeRaw = CPH.GetGlobalVar<string>(
             "ReactPlayerVolume",
             true
@@ -1506,6 +1645,12 @@ public class CPHInline
     {
         EnsureGlobals();
 
+        if (IsFallback(LoadCurrent()) && LoadList("ReactQueue").Count == 0)
+        {
+            SendPlayerCommand("nextfallback");
+            return true;
+        }
+
         return AdvanceQueue(
             "Skip"
         );
@@ -1540,8 +1685,6 @@ public class CPHInline
                 finished.Id
             );
 
-        // Normal queued requests are completed when advancing.
-        // A replayed history item is not inserted into history again.
         if (queuedFinished != null)
         {
             queue.Remove(
@@ -1589,6 +1732,8 @@ public class CPHInline
                 "stop"
             );
 
+            TryStartFallback();
+
             CPH.LogInfo(
                 "[React Player] " +
                 reason +
@@ -1632,6 +1777,150 @@ public class CPHInline
         );
 
         return true;
+    }
+
+    private string NormalizePlayerUrl(string value)
+    {
+        value = (value ?? "").Trim();
+        int fragment = value.IndexOf('#');
+        if (fragment >= 0) value = value.Substring(0, fragment);
+        int query = value.IndexOf('?');
+        return query < 0 ? value.TrimEnd('/') :
+            value.Substring(0, query).TrimEnd('/') + value.Substring(query);
+    }
+
+    private bool IsSelectedPlayer()
+    {
+        string playerUrl;
+        return GetObsDetectionStatus() == OBS_STATUS_READY &&
+            CPH.TryGetArg("playerUrl", out playerUrl) &&
+            !string.IsNullOrWhiteSpace(playerUrl) &&
+            NormalizePlayerUrl(playerUrl) ==
+                NormalizePlayerUrl(CPH.GetGlobalVar<string>("ReactObsSourceUrl", true));
+    }
+
+    private bool IsCurrentPlayerReport(MediaRequest current)
+    {
+        string requestId;
+        string sessionId;
+        return IsSelectedPlayer() &&
+            CPH.TryGetArg("requestId", out requestId) &&
+            requestId == (current == null ? "" : current.Id) &&
+            CPH.TryGetArg("sessionId", out sessionId) &&
+            sessionId == (CPH.GetGlobalVar<string>("ReactPlaybackSessionId", false) ?? "");
+    }
+
+    private bool IsFallback(MediaRequest request)
+    {
+        return request != null && request.Provider == "youtube" && request.MediaType == "playlist";
+    }
+
+    private bool FallbackEnabled()
+    {
+        return CPH.GetGlobalVar<bool>("ReactFallbackEnabled", true) &&
+            !CPH.GetGlobalVar<bool>("ReactFallbackStopped", true) &&
+            ParsePlaylistId(CPH.GetGlobalVar<string>("ReactFallbackPlaylist", true)) != "";
+    }
+
+    private string ParsePlaylistId(string value)
+    {
+        value = (value ?? "").Trim();
+        int fragmentIndex = value.IndexOf('#');
+        if (fragmentIndex >= 0)
+            value = value.Substring(0, fragmentIndex);
+        int schemeSeparator = value.IndexOf("://", StringComparison.Ordinal);
+        if (schemeSeparator <= 0)
+            return "";
+        string scheme = value.Substring(0, schemeSeparator).ToLowerInvariant();
+        if (scheme != "https" && scheme != "http")
+            return "";
+        string remainder = value.Substring(schemeSeparator + 3);
+        int queryIndex = remainder.IndexOf('?');
+        if (queryIndex < 0)
+            return "";
+        int hostEnd = FirstNonNegative(remainder.IndexOf('/'), queryIndex);
+        string host = remainder.Substring(0, hostEnd).ToLowerInvariant();
+        if (host != "youtube.com" && host != "www.youtube.com" && host != "m.youtube.com" && host != "youtu.be")
+            return "";
+        foreach (string part in remainder.Substring(queryIndex + 1).Split('&'))
+        {
+            string[] pair = part.Split(new[] { '=' }, 2);
+            if (pair.Length == 2 && pair[0] == "list" && IsYouTubeId(pair[1]))
+                return pair[1];
+        }
+        return "";
+    }
+
+    private bool IsYouTubeId(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return false;
+        foreach (char character in value)
+        {
+            if ((character < 'a' || character > 'z') &&
+                (character < 'A' || character > 'Z') &&
+                (character < '0' || character > '9') &&
+                character != '_' && character != '-')
+                return false;
+        }
+        return true;
+    }
+
+    private void PlayRequest(MediaRequest request)
+    {
+        ClosePlaybackPreferences(false);
+        SaveCurrent(request);
+        StartPlaybackSession(request);
+        ClearTelemetry();
+        CPH.SetGlobalVar("ReactPlayerState", "loading", true);
+        SendPlayerCommand("load");
+    }
+
+    private void StopCurrent()
+    {
+        SaveCurrent(null);
+        EndPlaybackSession();
+        ClearTelemetry();
+        CPH.SetGlobalVar("ReactPlayerState", "idle", true);
+        SendPlayerCommand("stop");
+    }
+
+    private void TryStartFallback()
+    {
+        if (!FallbackEnabled() || LoadCurrent() != null || LoadList("ReactQueue").Count != 0 ||
+            CPH.GetGlobalVar<bool>("ReactPlaybackPreferencesActive", false))
+            return;
+        MediaRequest request = CreateFallbackRequest();
+        if (request == null) return;
+        request.Id = Guid.NewGuid().ToString("N");
+        PlayRequest(request);
+    }
+
+    private MediaRequest CreateFallbackRequest()
+    {
+        string url = CPH.GetGlobalVar<string>("ReactFallbackPlaylist", true);
+        string playlistId = ParsePlaylistId(url);
+        if (playlistId == "") return null;
+        return new MediaRequest {
+            Id = "fallback", Provider = "youtube", MediaType = "playlist",
+            ContentId = playlistId, Url = url, OriginalUrl = url,
+            Title = "YouTube", OriginType = "fallback", User = "YouTube",
+            AddedAt = DateTime.UtcNow.ToString("o")
+        };
+    }
+
+    private void SendPlatformChatMessage(string message)
+    {
+        string source;
+        if (!CPH.TryGetArg("commandSource", out source) || string.IsNullOrWhiteSpace(source))
+            CPH.TryGetArg("platform", out source);
+        source = (source ?? "").ToLowerInvariant();
+        if (source.Contains("youtube"))
+            CPH.SendYouTubeMessageToLatestMonitored(message, true, true);
+        else if (source.Contains("kick"))
+            CPH.SendKickMessage(message, true, true);
+        else
+            CPH.SendMessage(message, true, true);
     }
 
     private void StartPlaybackSession(
@@ -1704,7 +1993,6 @@ public class CPHInline
         if (CPH.TryGetArg("reactControlToken", out string token) &&
             !string.IsNullOrWhiteSpace(token))
         {
-            // Lets the dock confirm completion even if ActionCompleted is lost.
             CPH.SetGlobalVar("ReactObsCompletedToken", token, false);
         }
     }
@@ -1793,37 +2081,10 @@ public class CPHInline
 
     private bool InitializeObsTarget()
     {
-        if (TryLoadSavedObsTarget(out ObsTargetCandidate savedTarget))
-        {
-            try
-            {
-                if (ValidateObsTarget(
-                    savedTarget,
-                    out ObsTargetCandidate validatedTarget))
-                {
-                    SaveReadyObsTarget(
-                        validatedTarget,
-                        new List<ObsTargetCandidate>
-                        {
-                            validatedTarget
-                        }
-                    );
-
-                    return true;
-                }
-            }
-            catch (Exception)
-            {
-                // A renamed or removed source can make validation fail as a
-                // raw OBS request error. A fresh scan distinguishes that from
-                // a wider OBS connection or response problem.
-            }
-        }
-
-        return DetectObsTarget();
+        return DetectObsTarget(true);
     }
 
-    private bool DetectObsTarget()
+    private bool DetectObsTarget(bool preserveSelection = false)
     {
         TryLoadSavedObsTarget(
             out ObsTargetCandidate previouslySelectedTarget
@@ -1937,6 +2198,11 @@ public class CPHInline
 
             if (preservedTarget != null)
             {
+                if (preserveSelection)
+                {
+                    SaveReadyObsTarget(preservedTarget, placements);
+                    return true;
+                }
                 SetObsTargetFields(preservedTarget);
             }
             else
@@ -2429,8 +2695,6 @@ public class CPHInline
         }
         catch (Exception)
         {
-            // A fresh scan below reports an OBS-wide failure once, or updates
-            // the target state if only the saved source/container changed.
         }
 
         RefreshInvalidObsTarget(operationDescription);
@@ -2629,7 +2893,6 @@ public class CPHInline
         }
         catch (Exception)
         {
-            // Older/manual globals may have been stored as text.
         }
 
         string rawValue = CPH.GetGlobalVar<string>(
@@ -2858,8 +3121,6 @@ public class CPHInline
 
     private string GetProjectorWindowTitle(string sourceName)
     {
-        // Current English OBS source-projector title format:
-        // "Projector - Source: <source name>"
         return "Projector - Source: " + sourceName;
     }
 
@@ -2908,8 +3169,6 @@ public class CPHInline
             if (monitorResponse != null &&
                 monitorResponse.monitors != null)
             {
-                // Windows/OBS place the primary display at desktop origin.
-                // Your current OBS layout has the main 2560x1440 display at 0,0.
                 for (int i = 0; i < monitorResponse.monitors.Count; i++)
                 {
                     ObsMonitorInfo monitor =
@@ -3012,7 +3271,10 @@ public class CPHInline
 
     private bool OpenPlaybackPreferences()
     {
-        if (HasCurrentPlayback())
+        string preferenceId;
+        CPH.TryGetArg("id", out preferenceId);
+        bool fallbackPreferences = preferenceId == "fallback";
+        if (HasCurrentPlayback() && !(fallbackPreferences && IsFallback(LoadCurrent())))
         {
             CPH.LogWarn(
                 "[React Player] Stop the current media before opening playback preferences."
@@ -3033,7 +3295,7 @@ public class CPHInline
 
         id = id.Trim();
 
-        MediaRequest request = FindInList(
+        MediaRequest request = fallbackPreferences ? CreateFallbackRequest() : FindInList(
             LoadList("ReactQueue"),
             id
         );
@@ -3093,18 +3355,16 @@ public class CPHInline
             return false;
         }
 
+        if (fallbackPreferences && IsFallback(LoadCurrent()))
+            StopCurrent();
+
+        CPH.SetGlobalVar("ReactPlaybackPreferencesActive", true, false);
         SendPlayerCommand(
             "openpreferences",
             null,
             provider,
             contentId,
             url
-        );
-
-        CPH.SetGlobalVar(
-            "ReactPlaybackPreferencesActive",
-            true,
-            false
         );
 
         CPH.SetGlobalVar(
